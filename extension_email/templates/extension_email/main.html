@@ -43,10 +43,12 @@
     <script type="text/javascript">window.__admin_media_prefix__ = "{% filter escapejs %}{% static "admin/" %}{% endfilter %}";</script>
     <script type="text/javascript" src="{% static 'admin/js/calendar.js' %}"></script>
     <script type="text/javascript" src="{% static 'admin/js/admin/DateTimeShortcuts.js' %}"></script>
-    <script type="text/javascript" src="{% static 'js/redactor/redactor/redactor.js' %}"></script>
+    <script type="text/javascript" src="{% static 'js/tinymce/js/tinymce/tinymce.min.js' %}"></script>
     <script type="text/javascript">
         $(document).on('submit', '#massNewsForm', function () {
             $('#id_subject').removeAttr('disabled');
+            tinyMCE.get('id_html_message').setMode('design');
+            AddRemoveTinyMce('id_html_message');
             $('#submitForm').button('loading');
             $.ajax({
                 url: $(this).attr('action'),
@@ -60,7 +62,7 @@
                         SelectFilter.init("id_course_filter", "Курсы", 0, "/static/admin/");
                         SelectFilter.init("id_university_filter", "Вузы", 0, "/static/admin/");
                         DateTimeShortcuts.init();
-                        init_redactor();
+                        AddRemoveTinyMce('id_html_message');
                         template_selected_handler($('#id_chosen_template').val());
                     }
                     if (!data['valid']) {
@@ -112,14 +114,15 @@
             if (val) {
                 $.post("{% url 'support_mail_template' %}", {id: val}, function(data) {
                     $('#id_subject').val(data['subject']);
-                    $('.vLargeTextField').redactor('code.set', data['html_message']);
+                    tinyMCE.get('id_html_message').setContent(data['html_message'], {format: 'html'});
                     template_selected_handler(true);
                 });
             }
             else {
-                $('#id_subject').val('');
-                $('.vLargeTextField').redactor('code.set', '');
                 template_selected_handler(false);
+                $('#id_subject').val('');
+                tinyMCE.get('id_html_message').setContent('<!DOCTYPE html>\n<html>\n<head>\n</head>\n<body>\n\n</body>\n</html>',
+                        {format: 'html'});
             }
         });
         $(document).on("keydown", function (e) {
@@ -130,24 +133,35 @@
         function template_selected_handler(selected) {
             if (selected) {
                 $('#id_subject').attr('disabled', 'disabled');
-                $('.redactor-editor').attr('contenteditable', 'false');
+                tinyMCE.get('id_html_message').setMode('readonly');
             }
             else {
                 $('#id_subject').removeAttr('disabled');
-                $('.redactor-editor').attr('contenteditable', 'true');
+                tinyMCE.get('id_html_message').setMode('design');
             }
         }
         function init_redactor() {
-            $('.vLargeTextField').redactor({
-                minHeight: 300
+            tinymce.init({
+                selector: '#id_html_message',
+                mode: 'none',
+                theme: 'modern',
+                language: 'ru',
+                plugins: 'code link lists image fullpage',
             });
-            var boxes = $('.redactor-box');
-            for (var i = 0; i < boxes.length; ++i) {
-                $(boxes[i]).parent()[0].getElementsByTagName('label')[0].style.float = "none";
-                $(boxes[i]).parent()[0].getElementsByTagName('label')[0].style.display = "inline";
-            }
 
         }
+
+        function AddRemoveTinyMce(editorId) {
+            if(tinyMCE.get(editorId))
+            {
+                tinyMCE.EditorManager.execCommand('mceFocus', false, editorId);
+                tinyMCE.EditorManager.execCommand('mceRemoveEditor', true, editorId);
+
+            } else {
+                tinymce.EditorManager.execCommand('mceAddEditor', false, editorId);
+            }
+        }
+
         init_redactor();
     </script>
 {% endblock %}
@@ -157,7 +171,6 @@
     <link rel="stylesheet" type="text/css" href="{% static 'admin/css/widgets.css' %}"/>
     <link rel="stylesheet" type="text/css" href="{% static 'admin/css/forms.css' %}"/>
     {{ block.super }}
-    <link rel="stylesheet" type="text/css" href="{% static "js/redactor/redactor/redactor.css" %}" />
     <style>
     div.form-row {
         position: relative;
