@@ -54,12 +54,16 @@ class FromSupportView(CreateView):
                 item.sender = self.request.user
                 item.target = form.to_json()
                 users, msg_type = filter_users(item)
+                error = False
                 if msg_type == 'to_myself':
                     msg = _(u'Вы уверены, что хотите отправить это сообщение себе? Для того, чтобы отправить '
                             u'сообщение другим пользователям, уберите галочку с "Отправить только себе"')
                 elif msg_type == 'to_all':
                     msg = _(u'Вы хотите отправить письмо с темой "%(theme)s" всем пользователям. Продолжить?') % \
                           {'theme': item.subject}
+                elif msg_type == 'error':
+                    msg = _(u'Ошибка коммуникации с EDX')
+                    error = True
                 else:
                     msg = ungettext(
                         u'Вы хотите отправить письмо с темой "%(theme)s" %(user_count)s пользователю. Продолжить?',
@@ -70,6 +74,7 @@ class FromSupportView(CreateView):
                     'form': form_html,
                     'valid': True,
                     'message': msg,
+                    'error': error,
                 })
             return self.form_valid(form)
         else:

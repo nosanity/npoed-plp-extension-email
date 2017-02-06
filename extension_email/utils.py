@@ -3,7 +3,16 @@
 from django.db.models import Q
 from django.utils import timezone
 from plp.models import User, EnrollmentReason, Participant, Subscription, Course, CourseSession
+from plp.utils.edx_enrollment import EDXEnrollment, EDXEnrollmentError
 from .forms import BulkEmailForm, CustomUnicodeCourseSession
+
+
+class EdxEnrollmentWithPerms(EDXEnrollment):
+    def get_permissions(self):
+        return self.request(
+            method='GET',
+            path='/api/extended/credentials'
+        )
 
 
 def filter_users(support_email):
@@ -26,6 +35,16 @@ def filter_users(support_email):
     dic_exclude = {}
     session_ids = []
     to_all = True
+    if data.get('instructors_filter', '') != '':
+        try:
+            edx_resp = EdxEnrollmentWithPerms().get_permissions().json()
+            session_id_to_code = {
+                i.id: i.get_absolute_slug_v1()
+                for i in CourseSession.objects.select_related('course__slug', 'course__university__slug')
+            }
+            to_all = False
+        except (EDXEnrollmentError, ValueError):
+            return User.objects.none(), 'error'
     # если фильтр по сессиям будет нужен, но пользователь не выбрал ни одной сессии
     if not data['session_filter'] and not data['course_filter'] and not data['university_filter'] \
             and (_check_enrollment_type_chosen() or _check_get_certificate_chosen()):
@@ -47,6 +66,13 @@ def filter_users(support_email):
         session_ids.extend(ids)
         session_ids = list(set(session_ids))
         dic.update({'participant__session__id__in': session_ids})
+
+    instructor_usernames = []
+    if data.get('instructors_filter', '') != '':
+        iterator = session_ids if session_ids else session_id_to_code.keys()
+        for i in iterator:
+            instructor_usernames.extend(edx_resp.get(session_id_to_code[i], []))
+        instructor_usernames = list(set(instructor_usernames))
 
     last_login_from = data.get('last_login_from') or BulkEmailForm.MIN_DATE
     last_login_to = data.get('last_login_to') or BulkEmailForm.MAX_DATE
@@ -96,7 +122,7 @@ def filter_users(support_email):
             return User.objects.none(), ''
         to_all = False
         have_cert = list(Participant.objects.filter(
-            is_graduate=data.get('passed', False),
+            is_graduate=True,
             session__id__in=session_ids,
         ).values_list('user__id', flat=True))
         if 'id__in' in dic:
@@ -119,4 +145,8 @@ def filter_users(support_email):
         users = User.objects.filter(**dic)
     # т.к. все пользователи в plp пушатся активными, проверяем реальную активность в sso так
     users = users.exclude(**dic_exclude).exclude(last_name='').distinct()
+    if data.get('instructors_filter'):
+        q = Q(username__in=instructor_usernames)
+        q = q if data['instructors_filter'] == 'only' else ~q
+        users = users.filter(q)
     return users, 'to_all' if to_all else ''

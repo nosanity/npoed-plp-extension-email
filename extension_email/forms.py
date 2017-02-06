@@ -58,6 +58,11 @@ class BulkEmailForm(forms.ModelForm):
     MIN_DATE = '01.01.2000'
     MAX_DATE = '01.01.2030'
     ENROLLMENT_TYPE_INITIAL = ['paid', 'free']
+    INSTRUCTOR_FILTER_CHOICES = [
+        ('', _(u'Всем')),
+        ('exclude', _(u'Не включать преподавателей')),
+        ('only', _(u'Только преподавателям')),
+    ]
 
     chosen_template = forms.ModelChoiceField(
         queryset=SupportEmailTemplate.objects.all(),
@@ -98,6 +103,8 @@ class BulkEmailForm(forms.ModelForm):
     )
     to_myself = forms.Field(widget=forms.CheckboxInput, label=_(u'Отправить только себе'), required=False,
                            help_text=_(u'Вы получите письмо при отправке только себе даже если вы отписаны от рассылки'))
+    instructors_filter = forms.ChoiceField(widget=forms.RadioSelect, label=_(u'Отфильтровать преподавателей'),
+                                           choices=INSTRUCTOR_FILTER_CHOICES, initial='')
     last_login_from = forms.DateField(label=_(u'Дата последнего входа от'), widget=AdminDateWidget(),
                                       input_formats=[DATETIME_FORMAT], initial=MIN_DATE)
     last_login_to = forms.DateField(label=_(u'Дата последнего входа до'), widget=AdminDateWidget(),

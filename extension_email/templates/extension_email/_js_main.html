@@ -40,6 +40,10 @@
                 var msg = data['message'];
                 $('#modalDialog div.modal-body').html('<p>' + msg + '</p>');
                 $('#modalDialog').modal('show');
+                if (data['error']) {
+                    $('#modal-success-buttons').hide();
+                    $('#modal-fail-buttons').show();
+                }
             },
             error: function (xhr, err) {
                 alert("{% blocktrans %}Во время выполнения запроса произошла ошибка{% endblocktrans %}");
@@ -51,6 +55,10 @@
             }
         });
         return false;
+    });
+    $(document).on('click', '#modal-fail-buttons span', function() {
+        $('#modal-success-buttons').show();
+        $('#modal-fail-buttons').hide();
     });
     $(document).on('click', '#sendMessage', function() {
         SelectBox.select_all('id_session_filter_to');
