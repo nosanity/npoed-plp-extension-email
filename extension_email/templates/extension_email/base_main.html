@@ -13,9 +13,12 @@
         <div class="modal-content">
           <div class="modal-body"></div>
           <div class="modal-footer">
-            <div class="clearfix">
+            <div class="clearfix" id="modal-success-buttons">
               <span id="sendMessage" class="btn btn-success pull-left">{% blocktrans %}Да{% endblocktrans %}</span>
               <span data-dismiss="modal" class="btn btn-danger pull-right">{% blocktrans %}Нет{% endblocktrans %}</span>
+            </div>
+            <div class="clearfix" id="modal-fail-buttons" style="display: none;">
+              <span data-dismiss="modal" class="btn btn-default pull-left">{% blocktrans %}Закрыть{% endblocktrans %}</span>
             </div>
           </div>
         </div>
