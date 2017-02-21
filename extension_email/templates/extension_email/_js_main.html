@@ -9,6 +9,33 @@
 <script type="text/javascript">
     $ = jQuery.noConflict();
     var current_emails_file;
+    function filter_change_visibility(type, hide) {
+        $('[data-field-type="' + type + '"]').each(function(i, el) {
+            if (hide) {
+                $(el).parents('div.form-row').hide();
+                if (type == 'default')
+                    $('h2.additional-header').hide();
+            }
+            else {
+                $(el).parents('div.form-row').show();
+                if (type == 'default')
+                    $('h2.additional-header').show();
+            }
+        });
+    }
+    $(document).delegate('.type-selector', 'change', function(e) {
+        check_selector_state($(e.target).val());
+    });
+    function check_selector_state(state) {
+        if (!state)
+            state = $('.type-selector:checked').val();
+        var filters = ['email', 'file', 'default'];
+        for (var i = 0; i < filters.length; i++)
+            filter_change_visibility(filters[i], true)
+        if (state)
+            filter_change_visibility(state);
+    }
+    check_selector_state();
     $(document).on('submit', '#massNewsForm', function (e) {
         e.preventDefault();
         AddRemoveTinyMce('id_html_message');
@@ -31,6 +58,7 @@
                     SelectFilter.init("id_university_filter", "Вузы", 0, "/static/admin/");
                     DateTimeShortcuts.init();
                     $('#id_emails').replaceWith(current_emails_file);
+                    check_selector_state();
                 }
                 if (!data['valid']) {
                     $('body').animate({scrollTop: $('.form-row.errors').first().position().top - $('.global-header').height()});

@@ -8,9 +8,9 @@
     <fieldset class="module aligned">
         {% for field in form %}
             {% if field.name == 'session_filter' %}
-                <h2>{% blocktrans %}Фильтры{% endblocktrans %}</h2>
+                <h2 class="form-row additional-header">{% blocktrans %}Фильтры{% endblocktrans %}</h2>
             {% endif %}
-            <div class="form-row{% if field.errors %} errors{% endif %}">
+            <div class="form-row row_{{ field.name }}{% if field.errors %} errors{% endif %}">
                 <div>
                     <label for="{{ field.name }}">{{ field.label }}</label>{{ field }}
                     {% if field.errors %}{{ field.errors }}{% endif %}
@@ -20,7 +20,7 @@
                 </div>
             </div>
             {% if field.name == 'session_filter' %}
-                <h2>{% blocktrans %}Опции для выбора пользователей платформы{% endblocktrans %}</h2>
+                <h2 class="form-row additional-header">{% blocktrans %}Опции для выбора пользователей платформы{% endblocktrans %}</h2>
             {% endif %}
         {% endfor %}
     </fieldset>
