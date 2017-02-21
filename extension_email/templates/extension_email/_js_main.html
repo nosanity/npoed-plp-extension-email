@@ -29,7 +29,7 @@
     function check_selector_state(state) {
         if (!state)
             state = $('.type-selector:checked').val();
-        var filters = ['email', 'file', 'default'];
+        var filters = ['email', 'file', 'default', 'self'];
         for (var i = 0; i < filters.length; i++)
             filter_change_visibility(filters[i], true)
         if (state)

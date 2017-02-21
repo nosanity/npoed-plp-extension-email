@@ -67,6 +67,7 @@ class BulkEmailForm(forms.ModelForm):
     FILTER_TYPE_CHOICES = [
         ('email', _(u'По списку емейлов')),
         ('file', _(u'По списку емейлов из файла')),
+        ('self', _(u'Отправить только себе')),
         ('default', _(u'По фильтрам')),
     ]
 
@@ -116,7 +117,7 @@ class BulkEmailForm(forms.ModelForm):
         label=_(u'Вуз'),
         help_text=_(u'Отправить письмо подписанным на новости курсов и записанным на курсы этих вузов')
     )
-    to_myself = forms.Field(widget=forms.CheckboxInput(attrs={'data-field-type': 'default'}),
+    to_myself = forms.Field(widget=forms.CheckboxInput(attrs={'data-field-type': 'self'}),
                             label=_(u'Отправить только себе'), required=False,
                             help_text=_(u'Вы получите письмо при отправке только себе даже если вы отписаны от рассылки'))
     instructors_filter = forms.ChoiceField(widget=forms.RadioSelect(attrs={'data-field-type': 'default'}),
