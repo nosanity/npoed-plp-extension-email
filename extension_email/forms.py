@@ -229,6 +229,8 @@ class BulkEmailForm(forms.ModelForm):
         super(BulkEmailForm, self)._post_clean()
         chosen_filter_type = self.cleaned_data.get('filter_type')
         for name, field in self.fields.items():
+            if name == 'to_myself' and chosen_filter_type == 'self':
+                self.cleaned_data[name] = True
             if field.widget.attrs.get('data-field-type') in dict(self.FILTER_TYPE_CHOICES) and \
                     field.widget.attrs.get('data-field-type') != chosen_filter_type:
                 # не учитываем поля не подходящие по типу рассылки (по емейлу/фильтрам)
