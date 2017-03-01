@@ -32,7 +32,7 @@ def filter_users(support_email):
         return User.objects.filter(email__in=by_email), ''
     if data.get('to_myself'):
         return User.objects.filter(username=support_email.sender.username), 'to_myself'
-    dic = {'bulk_email_optout__isnull': True}
+    dic = {'bulk_email_optout__isnull': True, 'is_active': True}
     dic_exclude = {}
     session_ids = []
     to_all = True
