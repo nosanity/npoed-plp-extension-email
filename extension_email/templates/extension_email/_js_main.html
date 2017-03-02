@@ -16,7 +16,7 @@
                 if (type == 'default')
                     $('h2.additional-header').hide();
             }
-            else {
+            else if (type != 'self') {
                 $(el).parents('div.form-row').show();
                 if (type == 'default')
                     $('h2.additional-header').show();
