@@ -56,8 +56,7 @@ class FromSupportView(CreateView):
                 users, msg_type = filter_users(item)
                 error = False
                 if msg_type == 'to_myself':
-                    msg = _(u'Вы уверены, что хотите отправить это сообщение себе? Для того, чтобы отправить '
-                            u'сообщение другим пользователям, уберите галочку с "Отправить только себе"')
+                    msg = _(u'Вы уверены, что хотите отправить это сообщение себе?')
                 elif msg_type == 'to_all':
                     msg = _(u'Вы хотите отправить письмо с темой "%(theme)s" всем пользователям. Продолжить?') % \
                           {'theme': item.subject}
