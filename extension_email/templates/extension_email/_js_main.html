@@ -9,6 +9,7 @@
 <script type="text/javascript">
     $ = jQuery.noConflict();
     var current_emails_file;
+    var tinymce_is_hidden = false;
     function filter_change_visibility(type, hide) {
         $('[data-field-type="' + type + '"]').each(function(i, el) {
             if (hide) {
@@ -38,7 +39,9 @@
     check_selector_state();
     $(document).on('submit', '#massNewsForm', function (e) {
         e.preventDefault();
-        AddRemoveTinyMce('id_html_message');
+        if(!tinymce_is_hidden) {
+            updateTinyMce('id_html_message');
+        }
         $('#id_subject').removeAttr('disabled');
         $('#submitForm').button('loading');
         var formData = new FormData(this);
@@ -78,7 +81,9 @@
             },
             complete: function(xhr, status) {
                 $('#submitForm').button('reset');
-                AddRemoveTinyMce('id_html_message');
+                if(!tinymce_is_hidden) {
+                    updateTinyMce('id_html_message');
+                }
                 template_selected_handler($('#id_chosen_template').val());
             }
         });
@@ -162,7 +167,7 @@
         return false;
     }
 
-    function AddRemoveTinyMce(editorId) {
+    function updateTinyMce(editorId) {
         if(tinyMCE.get(editorId))
         {
             tinyMCE.EditorManager.execCommand('mceFocus', false, editorId);
@@ -171,6 +176,10 @@
         } else {
             tinymce.EditorManager.execCommand('mceAddEditor', false, editorId);
         }
+    }
+    function toggleTinyMce(editorId) {
+        tinymce_is_hidden = !tinymce_is_hidden;
+        updateTinyMce(editorId);
     }
 
     function init_redactor() {
@@ -188,6 +197,6 @@
     }
     init_redactor();
     $(".toggle_tinymce").on('click',function(){
-        AddRemoveTinyMce('id_html_message');
+        toggleTinyMce('id_html_message');
     });
 </script>
