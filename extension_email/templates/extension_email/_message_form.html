@@ -10,6 +10,9 @@
             {% if field.name == 'session_filter' %}
                 <h2 class="form-row additional-header">{% blocktrans %}Фильтры{% endblocktrans %}</h2>
             {% endif %}
+            {% if field.name == 'html_message'%}
+                <button class="toggle_tinymce btn btn-default btn-sm" type="button">{% trans 'Влючить / Выключить редактор' %}</button>
+            {% endif %}
             <div class="form-row row_{{ field.name }}{% if field.errors %} errors{% endif %}">
                 <div>
                     <label for="{{ field.name }}">{{ field.label }}</label>{{ field }}
