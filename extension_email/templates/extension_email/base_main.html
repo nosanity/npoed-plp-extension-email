@@ -27,6 +27,8 @@
     <div class="container">
         <h1>{% blocktrans %}Массовая рассылка{% endblocktrans %}</h1>
         {% include 'extension_email/_message_form.html' %}
+        <button class="toggle_tinymce btn btn-default pull-right" type="button">{% trans 'Включить/выключить редактор' %}</button>
+        <div class="clearfix"></div>
         <br>
     </div>
 {% endblock %}
@@ -39,3 +41,4 @@
     <script type="text/javascript" src="{% static 'admin/js/SelectFilter2.js' %}"></script>
     <script type="text/javascript" src="{% static 'admin/js/SelectBox.js' %}"></script>
 {% endblock %}
+
