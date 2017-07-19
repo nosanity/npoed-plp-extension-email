@@ -1,0 +1,43 @@
+{% extends 'base.html' %}
+{% load static from staticfiles %}
+
+{% load widget_filters i18n admin_static %}
+
+{% block title %}{% blocktrans %}Массовая рассылка{% endblocktrans %}{% endblock title %}
+
+{% block section_id %}bulk_email{% endblock section_id %}
+
+{% block content %}
+    <div class="modal fade text-left" tabindex="2" role="dialog" id="modalDialog">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-body"></div>
+          <div class="modal-footer">
+            <div class="clearfix" id="modal-success-buttons">
+              <span id="sendMessage" class="btn btn-success pull-left">{% blocktrans %}Да{% endblocktrans %}</span>
+              <span data-dismiss="modal" class="btn btn-danger pull-right">{% blocktrans %}Нет{% endblocktrans %}</span>
+            </div>
+            <div class="clearfix" id="modal-fail-buttons" style="display: none;">
+              <span data-dismiss="modal" class="btn btn-default pull-left">{% blocktrans %}Закрыть{% endblocktrans %}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="container">
+        <h1>{% blocktrans %}Массовая рассылка{% endblocktrans %}</h1>
+        {% include 'extension_email/_message_form.html' %}
+        <button class="toggle_tinymce btn btn-default pull-right" type="button">{% trans 'Включить/выключить редактор' %}</button>
+        <div class="clearfix"></div>
+        <br>
+    </div>
+{% endblock %}
+
+{% block javascript %}
+    {{ block.super }}
+    <script type="text/javascript" src="{% static 'admin/js/core.js' %}"></script>
+    <script type="text/javascript" src="{% static 'admin/js/jquery.init.js' %}"></script>
+    <script type="text/javascript" src="{% static 'admin/js/SelectFilter2.js' %}"></script>
+    <script type="text/javascript" src="{% static 'admin/js/SelectBox.js' %}"></script>
+{% endblock %}
+

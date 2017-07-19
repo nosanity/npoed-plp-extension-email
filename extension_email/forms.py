@@ -2,11 +2,13 @@
 
 from datetime import date
 from django import forms
+from django.core.validators import validate_email
 from django.db.models import Case, When, Value, QuerySet, Model
 from django.db.models.fields import BooleanField
 from django.contrib.admin.widgets import FilteredSelectMultiple, AdminDateWidget
 from django.template import Template, Context
 from django.utils import timezone
+from django.utils.six import text_type
 from django.utils.translation import ugettext_lazy as _
 from plp.models import CourseSession, Course, University
 from .models import SupportEmail, SupportEmailTemplate
@@ -57,6 +59,17 @@ class BulkEmailForm(forms.ModelForm):
     MIN_DATE = '01.01.2000'
     MAX_DATE = '01.01.2030'
     ENROLLMENT_TYPE_INITIAL = ['paid', 'free']
+    INSTRUCTOR_FILTER_CHOICES = [
+        ('', _(u'Всем')),
+        ('exclude', _(u'Не включать преподавателей')),
+        ('only', _(u'Только преподавателям')),
+    ]
+    FILTER_TYPE_CHOICES = [
+        ('email', _(u'По списку емейлов')),
+        ('file', _(u'По списку емейлов из файла')),
+        ('self', _(u'Отправить только себе')),
+        ('default', _(u'По фильтрам')),
+    ]
 
     chosen_template = forms.ModelChoiceField(
         queryset=SupportEmailTemplate.objects.all(),
@@ -64,11 +77,25 @@ class BulkEmailForm(forms.ModelForm):
         label=_(u'Выберите шаблон или напишите письмо'),
         help_text=_(u'Имейте в виду, что вы не сможете редактировать выбранный шаблон')
     )
+    filter_type = forms.ChoiceField(widget=forms.RadioSelect(attrs={'class': 'type-selector'}),
+                                    label=_(u'Тип рассылки'),
+                                    choices=FILTER_TYPE_CHOICES)
+    emails = forms.FileField(
+        widget=forms.FileInput(attrs={'data-field-type': 'file'}),
+        required=False,
+        label=_(u'Список емейлов'),
+        help_text=_(u'Рассылка по списку игнорируя фильтры. Каждый адрес с новой строки.')
+    )
+    emails_list = forms.CharField(
+        widget=forms.Textarea(attrs={'data-field-type': 'email', 'style': 'width: 100%'}),
+        label=_(u'Список емейлов plaintext'),
+        required=False,
+        help_text=_(u'Список емейлов, разделенных точкой с запятой или переводом строки'))
     session_filter = forms.ModelMultipleChoiceField(
         queryset=CustomUnicodeCourseSession.get_ordered_queryset(),
         widget=FilteredSelectMultiple(verbose_name=_(u'Сессии'),
                                       is_stacked=False,
-                                      attrs={'style': 'min-height: 180px'}),
+                                      attrs={'style': 'min-height: 180px', 'data-field-type': 'default'}),
         required=False,
         label=_(u'Сессия курса')
     )
@@ -76,7 +103,7 @@ class BulkEmailForm(forms.ModelForm):
         queryset=Course.objects.all(),
         widget=FilteredSelectMultiple(verbose_name=_(u'Курсы'),
                                       is_stacked=False,
-                                      attrs={'style': 'min-height: 180px'}),
+                                      attrs={'style': 'min-height: 180px', 'data-field-type': 'default'}),
         required=False,
         label=_(u'Курс'),
         help_text=_(u'Отправить письмо подписанным на новости курсов или записанным на них')
@@ -85,30 +112,41 @@ class BulkEmailForm(forms.ModelForm):
         queryset=University.objects.all(),
         widget=FilteredSelectMultiple(verbose_name=_(u'Вузы'),
                                       is_stacked=False,
-                                      attrs={'style': 'min-height: 180px'}),
+                                      attrs={'style': 'min-height: 180px', 'data-field-type': 'default'}),
         required=False,
         label=_(u'Вуз'),
         help_text=_(u'Отправить письмо подписанным на новости курсов и записанным на курсы этих вузов')
     )
-    to_myself = forms.Field(widget=forms.CheckboxInput, label=_(u'Отправить только себе'), required=False,
-                           help_text=_(u'Вы получите письмо при отправке только себе даже если вы отписаны от рассылки'))
-    last_login_from = forms.DateField(label=_(u'Дата последнего входа от'), widget=AdminDateWidget(),
+    to_myself = forms.Field(widget=forms.CheckboxInput(attrs={'data-field-type': 'self'}),
+                            label=_(u'Отправить только себе'), required=False,
+                            help_text=_(u'Вы получите письмо при отправке только себе даже если вы отписаны от рассылки'))
+    instructors_filter = forms.ChoiceField(widget=forms.RadioSelect(attrs={'data-field-type': 'default'}),
+                                           label=_(u'Отфильтровать преподавателей'),
+                                           choices=INSTRUCTOR_FILTER_CHOICES, initial='', required=False)
+    last_login_from = forms.DateField(label=_(u'Дата последнего входа от'),
+                                      widget=AdminDateWidget(attrs={'data-field-type': 'default'}),
                                       input_formats=[DATETIME_FORMAT], initial=MIN_DATE)
-    last_login_to = forms.DateField(label=_(u'Дата последнего входа до'), widget=AdminDateWidget(),
+    last_login_to = forms.DateField(label=_(u'Дата последнего входа до'),
+                                    widget=AdminDateWidget(attrs={'data-field-type': 'default'}),
                                     input_formats=[DATETIME_FORMAT], initial=MAX_DATE)
-    register_date_from = forms.DateField(label=_(u'Дата регистрации от'), widget=AdminDateWidget(),
+    register_date_from = forms.DateField(label=_(u'Дата регистрации от'),
+                                         widget=AdminDateWidget(attrs={'data-field-type': 'default'}),
                                          input_formats=[DATETIME_FORMAT], initial=MIN_DATE)
-    register_date_to = forms.DateField(label=_(u'Дата регистрации до'), widget=AdminDateWidget(),
+    register_date_to = forms.DateField(label=_(u'Дата регистрации до'),
+                                       widget=AdminDateWidget(attrs={'data-field-type': 'default'}),
                                        input_formats=[DATETIME_FORMAT], initial=MAX_DATE)
-    enrollment_type = forms.MultipleChoiceField(choices=(
-        ('paid', _(u'Платники')),
-        ('free', _(u'Бесплатники'))
-    ), widget=forms.CheckboxSelectMultiple, label=_(u'Вариант прохождения'), initial=ENROLLMENT_TYPE_INITIAL)
-    got_certificate = forms.MultipleChoiceField(choices=(
-        ('paid', _(u'Пользователь получил подтвержденный сертификат')),
-        ('free', _(u'Пользователь получил неподтвержденный сертификат')),
-    ), widget=forms.CheckboxSelectMultiple, label=_(u'Получен сертификат'), required=False,
-       help_text=_(u'Если не выбран ни один из чекбоксов - рассылка для всех пользователей, которые и получили, '
+    enrollment_type = forms.MultipleChoiceField(
+        choices=(('paid', _(u'Платники')), ('free', _(u'Бесплатники'))),
+        widget=forms.CheckboxSelectMultiple(attrs={'data-field-type': 'default'}),
+        label=_(u'Вариант прохождения'), initial=ENROLLMENT_TYPE_INITIAL)
+    got_certificate = forms.MultipleChoiceField(
+        choices=(
+            ('paid', _(u'Пользователь получил подтвержденный сертификат')),
+            ('free', _(u'Пользователь получил неподтвержденный сертификат')),
+        ),
+        widget=forms.CheckboxSelectMultiple(attrs={'data-field-type': 'default'}),
+        label=_(u'Получен сертификат'), required=False,
+        help_text=_(u'Если не выбран ни один из чекбоксов - рассылка для всех пользователей, которые и получили, '
                    u'и не получили сертификаты. Если выбран один чекбокс - то только пользователям платникам либо '
                    u'бесплатникам, получившим сертификат. Если оба - то всем пользователям, получившим сертификат'))
 
@@ -139,6 +177,42 @@ class BulkEmailForm(forms.ModelForm):
                 result[k] = v
         return result
 
+    def clean_emails(self):
+        val = self.cleaned_data.get('emails')
+        if self.cleaned_data.get('filter_type', '') == 'file' and not val:
+            raise forms.ValidationError(_(u'Это поле оязательно.'))
+        if val:
+            result = [i.strip() for i in val.readlines() if i.strip()]
+            try:
+                text_type(result[0])
+            except (UnicodeDecodeError, IndexError):
+                raise forms.ValidationError(_(u'Файл не содержит данных или некорректен'))
+            return result
+
+    def _validate_emails(self, emails):
+        incorrect = []
+        for e in emails:
+            try:
+                validate_email(e)
+            except forms.ValidationError:
+                incorrect.append(e)
+        return incorrect
+
+    def clean_emails_list(self):
+        val = self.cleaned_data.get('emails_list')
+        if self.cleaned_data.get('filter_type', '') == 'email' and not val:
+            raise forms.ValidationError(_(u'Это поле оязательно.'))
+        if val:
+            emails = [i.strip() for i in val.splitlines() if i.strip()]
+            emails = [[j.strip() for j in i.split(';') if j.strip()] for i in emails]
+            emails = reduce(lambda x, y: x + y, emails, [])
+            incorrect = self._validate_emails(emails)
+            if incorrect:
+                raise forms.ValidationError(_(u'Следующие емейлы некорректны: %s') % ', '.join(incorrect))
+            if not emails:
+                raise forms.ValidationError(_(u'Значение не должно состоять из одних пробелов'))
+            return emails
+
     def clean_html_message(self):
         """
         Проверка того, что в HTML тексте корректный джанго шаблон
@@ -150,6 +224,18 @@ class BulkEmailForm(forms.ModelForm):
             except:
                 raise forms.ValidationError(_(u'Некорректный HTML текст письма'))
         return html
+    
+    def _post_clean(self):
+        super(BulkEmailForm, self)._post_clean()
+        chosen_filter_type = self.cleaned_data.get('filter_type')
+        for name, field in self.fields.items():
+            if name == 'to_myself' and chosen_filter_type == 'self':
+                self.cleaned_data[name] = True
+            if field.widget.attrs.get('data-field-type') in dict(self.FILTER_TYPE_CHOICES) and \
+                    field.widget.attrs.get('data-field-type') != chosen_filter_type:
+                # не учитываем поля не подходящие по типу рассылки (по емейлу/фильтрам)
+                self._errors.pop(name, None)
+                self.cleaned_data[name] = field.to_python(field.initial)
 
     def clean(self):
         data = super(BulkEmailForm, self).clean()

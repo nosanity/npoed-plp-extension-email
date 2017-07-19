@@ -1,6 +1,6 @@
 {% load i18n %}
 
-<form method="post" id="massNewsForm">
+<form method="post" id="massNewsForm" enctype="multipart/form-data">
     {% csrf_token %}
     {% if form.non_field_errors %}
     <div class="form-row errors">{{ form.non_field_errors }}</div>
@@ -8,9 +8,9 @@
     <fieldset class="module aligned">
         {% for field in form %}
             {% if field.name == 'session_filter' %}
-                <h2>{% blocktrans %}Фильтры{% endblocktrans %}</h2>
+                <h2 class="form-row additional-header">{% blocktrans %}Фильтры{% endblocktrans %}</h2>
             {% endif %}
-            <div class="form-row{% if field.errors %} errors{% endif %}">
+            <div class="form-row row_{{ field.name }}{% if field.errors %} errors{% endif %}">
                 <div>
                     <label for="{{ field.name }}">{{ field.label }}</label>{{ field }}
                     {% if field.errors %}{{ field.errors }}{% endif %}
@@ -20,10 +20,10 @@
                 </div>
             </div>
             {% if field.name == 'session_filter' %}
-                <h2>{% blocktrans %}Опции для выбора пользователей платформы{% endblocktrans %}</h2>
+                <h2 class="form-row additional-header">{% blocktrans %}Опции для выбора пользователей платформы{% endblocktrans %}</h2>
             {% endif %}
         {% endfor %}
     </fieldset>
-    <button type="submit" id="submitForm" class="btn btn-default" data-loading-text="{% blocktrans %}Отправить...{% endblocktrans %}">
+    <button type="submit" id="submitForm" class="pull-left btn btn-success" data-loading-text="{% blocktrans %}Отправить...{% endblocktrans %}">
         {% blocktrans %}Отправить{% endblocktrans %}</button>
 </form>

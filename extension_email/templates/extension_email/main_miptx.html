@@ -3,12 +3,12 @@
 
 {% load widget_filters i18n admin_static %}
 
-{% block javascript %}
+{% block js %}
     {{ block.super }}
     {% include 'extension_email/_js_main.html' %}
 {% endblock %}
 
-{% block styling %}
+{% block css %}
     <link rel="stylesheet" type="text/css" href="{% static 'admin/css/base.css' %}"/>
     <link rel="stylesheet" type="text/css" href="{% static 'admin/css/widgets.css' %}"/>
     <link rel="stylesheet" type="text/css" href="{% static 'admin/css/forms.css' %}"/>

@@ -32,6 +32,11 @@ class FromSupportView(CreateView):
             return super(FromSupportView, self).dispatch(request, *args, **kwargs)
         raise Http404
 
+    def get_template_names(self):
+        if getattr(settings, 'EXTENSION_EMAIL_OPENEDU_TEMPLATE', True):
+            return [self.template_name]
+        return ['extension_email/main_miptx.html']
+
     def form_valid(self, form):
         self.object = form.save(commit=False)
         self.object.sender = self.request.user
@@ -49,12 +54,15 @@ class FromSupportView(CreateView):
                 item.sender = self.request.user
                 item.target = form.to_json()
                 users, msg_type = filter_users(item)
+                error = False
                 if msg_type == 'to_myself':
-                    msg = _(u'Вы уверены, что хотите отправить это сообщение себе? Для того, чтобы отправить '
-                            u'сообщение другим пользователям, уберите галочку с "Отправить только себе"')
+                    msg = _(u'Вы уверены, что хотите отправить это сообщение себе?')
                 elif msg_type == 'to_all':
                     msg = _(u'Вы хотите отправить письмо с темой "%(theme)s" всем пользователям. Продолжить?') % \
                           {'theme': item.subject}
+                elif msg_type == 'error':
+                    msg = _(u'Ошибка коммуникации с EDX')
+                    error = True
                 else:
                     msg = ungettext(
                         u'Вы хотите отправить письмо с темой "%(theme)s" %(user_count)s пользователю. Продолжить?',
@@ -65,6 +73,7 @@ class FromSupportView(CreateView):
                     'form': form_html,
                     'valid': True,
                     'message': msg,
+                    'error': error,
                 })
             return self.form_valid(form)
         else:
