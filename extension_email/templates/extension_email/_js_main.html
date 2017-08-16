@@ -37,7 +37,6 @@
         if (state)
             filter_change_visibility(state);
     }
-    check_selector_state();
 
     function is_valid(e) {
         if (e == undefined) {
@@ -112,115 +111,10 @@
         field.parents('div.form-row').removeClass('errors').children('div').find('ul.errorlist').remove();
     }
     $(document).delegate('#massNewsForm :input', 'change input', is_valid);
-    $(document).on('submit', '#massNewsForm', function (e) {
-        e.preventDefault();
-        if (!is_valid()) {
-            $('body').animate({scrollTop: $('.form-row.errors').first().position().top - $('.global-header').height()});
-            return;
-        }
-        if(!tinymce_is_hidden) {
-            updateTinyMce('id_html_message');
-        }
-        $('#id_subject').removeAttr('disabled');
-        $('#submitForm').button('loading');
-        var formData = new FormData(this);
-        current_emails_file = $('#id_emails');
-        $.ajax({
-            url: $(this).attr('action'),
-            type: $(this).attr('method'),
-            data: formData,
-            processData: false,
-            contentType: false,
-            success: function (data) {
-                if (data['form']) {
-                    $('#massNewsForm').replaceWith(data['form']);
-                    SelectFilter.init("id_session_filter", "Сессия курса", 0, "/static/admin/");
-                    SelectFilter.init("id_course_filter", "Курсы", 0, "/static/admin/");
-                    SelectFilter.init("id_university_filter", "Вузы", 0, "/static/admin/");
-                    DateTimeShortcuts.init();
-                    $('#id_emails').replaceWith(current_emails_file);
-                    check_selector_state();
-                }
-                if (!data['valid']) {
-                    $('body').animate({scrollTop: $('.form-row.errors').first().position().top - $('.global-header').height()});
-                    $('#id_emails').replaceWith(current_emails_file);
-                    return;
-                }
-                if (data['item_id']) {
-                    email_item_id = data['item_id'];
-                }
-                var msg = data['message'];
-                $('#modalDialog div.modal-body').html('<p>' + msg + '</p>');
-                $('#modalDialog').modal('show');
-                if (data['error']) {
-                    $('#modal-success-buttons').hide();
-                    $('#modal-fail-buttons').show();
-                }
-            },
-            error: function (xhr, err) {
-                alert("{% blocktrans %}Во время выполнения запроса произошла ошибка{% endblocktrans %}");
-            },
-            complete: function(xhr, status) {
-                $('#submitForm').button('reset');
-                if(!tinymce_is_hidden) {
-                    updateTinyMce('id_html_message');
-                }
-                template_selected_handler($('#id_chosen_template').val());
-            }
-        });
-        return false;
-    });
-    $(document).on('click', '#modal-fail-buttons span', function() {
-        $('#modal-success-buttons').show();
-        $('#modal-fail-buttons').hide();
-    });
     function disable_btn(btn, disable) {
         btn.prop('disabled', disable);
         disable ? btn.attr('disabled', 'disabled') : btn.removeAttr('disabled');
     }
-    $(document).on('click', '#sendMessage', function() {
-        var submit_btn = $(this);
-        disable_btn(submit_btn, true);
-        var disabled = $('#id_subject').attr('disabled');
-        if (disabled)
-            $('#id_subject').removeAttr('disabled');
-        $.ajax({
-            url: "{% url 'from-support-confirm' %}",
-            type: "POST",
-            data: {item_id: email_item_id},
-            success: function (data) {
-                $('#modalDialog').modal('hide');
-                alert("{% blocktrans %}Сообщения успешно отправлены{% endblocktrans %}");
-            },
-            error: function (xhr, err) {
-                alert("{% blocktrans %}Во время выполнения запроса произошла ошибка{% endblocktrans %}");
-            },
-            complete: function(xhr, status) {
-                window.location.reload();
-            }
-        });
-    });
-    $(document).on('change', '#id_chosen_template', function(e) {
-        var val = $(e.target).val();
-        if (val) {
-            $.post("{% url 'support_mail_template' %}", {id: val}, function(data) {
-                $('#id_subject').val(data['subject']).trigger('change');
-                tinyMCE.get('id_html_message').setContent(data['html_message'], {format: 'html'});
-                $('#id_html_message').trigger('change');
-                template_selected_handler(true);
-            });
-        }
-        else {
-            template_selected_handler(false);
-            $('#id_subject').val('');
-            tinyMCE.get('id_html_message').setContent('', {format: 'html'});
-        }
-    });
-    $(document).on("keydown", function (e) {
-        if (e.which === 8 && !$(e.target).is("input, textarea, .redactor-editor")) {
-            e.preventDefault();
-        }
-    });
     function template_selected_handler(selected) {
         var editor = tinymce.get('id_html_message');
         if (selected) {
@@ -279,8 +173,119 @@
             }
           });
     }
-    init_redactor();
-    $(".toggle_tinymce").on('click',function(){
-        toggleTinyMce('id_html_message');
+
+    $(document).ready(function() {
+        check_selector_state();
+        init_redactor();
+        $(".toggle_tinymce").on('click',function(){
+            toggleTinyMce('id_html_message');
+        });
+
+        $(document).on('click', '#sendMessage', function() {
+            var submit_btn = $(this);
+            disable_btn(submit_btn, true);
+            var disabled = $('#id_subject').attr('disabled');
+            if (disabled)
+                $('#id_subject').removeAttr('disabled');
+            $.ajax({
+                url: "{% url 'from-support-confirm' %}",
+                type: "POST",
+                data: {item_id: email_item_id},
+                success: function (data) {
+                    $('#modalDialog').modal('hide');
+                    alert("{% blocktrans %}Сообщения успешно отправлены{% endblocktrans %}");
+                },
+                error: function (xhr, err) {
+                    alert("{% blocktrans %}Во время выполнения запроса произошла ошибка{% endblocktrans %}");
+                },
+                complete: function(xhr, status) {
+                    window.location.reload();
+                }
+            });
+        });
+        $(document).on('change', '#id_chosen_template', function(e) {
+            var val = $(e.target).val();
+            if (val) {
+                $.post("{% url 'support_mail_template' %}", {id: val}, function(data) {
+                    $('#id_subject').val(data['subject']).trigger('change');
+                    tinyMCE.get('id_html_message').setContent(data['html_message'], {format: 'html'});
+                    $('#id_html_message').trigger('change');
+                    template_selected_handler(true);
+                });
+            }
+            else {
+                template_selected_handler(false);
+                $('#id_subject').val('');
+                tinyMCE.get('id_html_message').setContent('', {format: 'html'});
+            }
+        });
+        $(document).on("keydown", function (e) {
+            if (e.which === 8 && !$(e.target).is("input, textarea, .redactor-editor")) {
+                e.preventDefault();
+            }
+        });
+
+        $(document).on('submit', '#massNewsForm', function (e) {
+            e.preventDefault();
+            if (!is_valid()) {
+                $('body').animate({scrollTop: $('.form-row.errors').first().position().top - $('.global-header').height()});
+                return;
+            }
+            if(!tinymce_is_hidden) {
+                updateTinyMce('id_html_message');
+            }
+            $('#id_subject').removeAttr('disabled');
+            $('#submitForm').button('loading');
+            var formData = new FormData(this);
+            current_emails_file = $('#id_emails');
+            $.ajax({
+                url: $(this).attr('action'),
+                type: $(this).attr('method'),
+                data: formData,
+                processData: false,
+                contentType: false,
+                success: function (data) {
+                    if (data['form']) {
+                        $('#massNewsForm').replaceWith(data['form']);
+                        SelectFilter.init("id_session_filter", "Сессия курса", 0, "/static/admin/");
+                        SelectFilter.init("id_course_filter", "Курсы", 0, "/static/admin/");
+                        SelectFilter.init("id_university_filter", "Вузы", 0, "/static/admin/");
+                        DateTimeShortcuts.init();
+                        $('#id_emails').replaceWith(current_emails_file);
+                        check_selector_state();
+                    }
+                    if (!data['valid']) {
+                        $('body').animate({scrollTop: $('.form-row.errors').first().position().top - $('.global-header').height()});
+                        $('#id_emails').replaceWith(current_emails_file);
+                        return;
+                    }
+                    if (data['item_id']) {
+                        email_item_id = data['item_id'];
+                    }
+                    var msg = data['message'];
+                    $('#modalDialog div.modal-body').html('<p>' + msg + '</p>');
+                    $('#modalDialog').modal('show');
+                    if (data['error']) {
+                        $('#modal-success-buttons').hide();
+                        $('#modal-fail-buttons').show();
+                    }
+                },
+                error: function (xhr, err) {
+                    alert("{% blocktrans %}Во время выполнения запроса произошла ошибка{% endblocktrans %}");
+                },
+                complete: function(xhr, status) {
+                    $('#submitForm').button('reset');
+                    if(!tinymce_is_hidden) {
+                        updateTinyMce('id_html_message');
+                    }
+                    template_selected_handler($('#id_chosen_template').val());
+                }
+            });
+            return false;
+        });
+        $(document).on('click', '#modal-fail-buttons span', function() {
+            $('#modal-success-buttons').show();
+            $('#modal-fail-buttons').hide();
+        });
     });
 </script>
