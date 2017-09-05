@@ -8,6 +8,7 @@
 {% block section_id %}bulk_email{% endblock section_id %}
 
 {% block content %}
+    {% block modal_window %}
     <div class="modal fade text-left" tabindex="2" role="dialog" id="modalDialog">
       <div class="modal-dialog">
         <div class="modal-content">
@@ -24,10 +25,22 @@
         </div>
       </div>
     </div>
+    {% endblock %}
     <div class="container">
         <h1>{% blocktrans %}Массовая рассылка{% endblocktrans %}</h1>
+        <ul class="nav nav-tabs">
+            <li {% block create_massmail_block %}{% endblock %}>
+                <h5><a href="{% url 'from-support' %}">{% blocktrans %}Создать рассылку{% endblocktrans %}</a></h5>
+            </li>
+            <li>&nbsp;&nbsp;&nbsp;</li>
+            <li {% block analytics_block %}{% endblock %}>
+                <h5><a href="{% url 'massmail-analytics' %}">{% blocktrans %}История и аналитика{% endblocktrans %}</a></h5>
+            </li>
+        </ul>
+        {% block page_content %}
         {% include 'extension_email/_message_form.html' %}
         <button class="toggle_tinymce btn btn-default pull-right" type="button">{% trans 'Включить/выключить редактор' %}</button>
+        {% endblock %}
         <div class="clearfix"></div>
         <br>
     </div>

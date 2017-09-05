@@ -3,6 +3,8 @@
 
 {% load widget_filters i18n admin_static %}
 
+{% block create_massmail_block %} class="active"{% endblock %}
+
 {% block javascript %}
     {{ block.super }}
     {% include 'extension_email/_js_main.html' %}

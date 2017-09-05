@@ -1,21 +1,23 @@
 # coding: utf-8
 
 import base64
+import logging
 from django.conf import settings
 from django.core.urlresolvers import reverse_lazy
-from django.http import Http404, JsonResponse
+from django.db.models import F
+from django.http import Http404, JsonResponse, HttpResponse
 from django.shortcuts import render
 from django.template.loader import get_template
 from django.utils.translation import ugettext as _, ungettext
-from django.views.generic import CreateView
+from django.views.generic import CreateView, ListView
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from api.views.user import ApiKeyPermission
 from plp.models import User
 from .forms import BulkEmailForm
-from .models import BulkEmailOptout, SupportEmailTemplate
-from .tasks import support_mass_send
+from .models import BulkEmailOptout, SupportEmailTemplate, SupportEmail
+from .tasks import support_mass_send, send_analytics_data, prepare_analytics_data
 from .utils import filter_users
 
 
@@ -80,6 +82,41 @@ class FromSupportView(CreateView):
             return JsonResponse({'form': form_html, 'valid': False})
 
 
+class MassMailAnalytics(ListView):
+    template_name = 'extension_email/analytics.html'
+    model = SupportEmail
+    paginate_by = 20
+    queryset = SupportEmail.objects.all()
+    ordering = ['-created']
+    headers = (_(u'Дата рассылки'), _(u'Время рассылки'), _(u'Тема рассылки'),
+               _(u'Размер базы'), _(u'Количество доставленных писем'), _(u'Количество отписок'))
+
+    def dispatch(self, request, *args, **kwargs):
+        if request.user.is_staff:
+            return super(MassMailAnalytics, self).dispatch(request, *args, **kwargs)
+        raise Http404
+
+    def get_context_data(self, **kwargs):
+        data = super(MassMailAnalytics, self).get_context_data(**kwargs)
+        data['headers'] = self.headers
+        return data
+
+    def post(self, request):
+        items_count = self.get_queryset().count()
+        # максимальное число строк которое можно выдать csv файлом синхронно
+        max_sync_items = getattr(settings, 'SUPPORT_EMAIL_MAX_SYNC_ANALYTICS', 1000)
+        if 'download' in request.POST:
+            if items_count <= max_sync_items:
+                result = prepare_analytics_data()
+                resp = HttpResponse(result, content_type='text/csv; charset=utf8')
+                resp['Content-Disposition'] = 'attachment; filename=%s' % 'email_analytics.csv'
+                return resp
+            else:
+                send_analytics_data.delay(request.user.id)
+                return JsonResponse({'status': 0})
+        return JsonResponse({'sync': items_count <= max_sync_items})
+
+
 def unsubscribe(request, hash_str):
     """
     отписка от рассылок по уникальному для пользователя хэшу
@@ -92,6 +129,13 @@ def unsubscribe(request, hash_str):
         user = User.objects.get(username=s)
     except User.DoesNotExist:
         raise Http404
+    obj_id = request.GET.get('id')
+    if obj_id and not BulkEmailOptout.objects.filter(user=user).exists():
+        try:
+            SupportEmail.objects.filter(id=obj_id).update(unsubscriptions=F('unsubscriptions') + 1)
+            logging.info('User %s unsubscribed from mass emails (obj_id %s)' % (request.user.email, obj_id))
+        except (ValueError, UnicodeDecodeError) as e:
+            logging.error('User %s unsubscribe from mass emails error %s' % (request.user.email, e))
     BulkEmailOptout.objects.get_or_create(user=user)
     context = {
         'profile_url': '{}/profile/'.format(settings.SSO_NPOED_URL),
