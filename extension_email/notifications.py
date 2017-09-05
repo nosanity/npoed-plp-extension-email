@@ -3,9 +3,11 @@
 import base64
 from django.core.urlresolvers import reverse
 from django.template import Template, Context
+from django.db import transaction
 from django.utils.translation import ugettext_lazy as _
+from post_office.mail import send
 from npoed_massmail.base import MassSendEmails
-from .models import SupportEmail
+from .models import EmailRelated, SupportEmail
 
 
 class BulkEmailSend(MassSendEmails):
@@ -50,9 +52,17 @@ class BulkEmailSend(MassSendEmails):
     def get_extra_headers(self, email=None):
         return {'List-Unsubscribe': self.get_unsubscribe_url(email)}
 
+    def send(self):
+        with transaction.atomic():
+            for msgs in self.generate_messages():
+                for email in msgs:
+                    item = send(commit=False, **email)
+                    EmailRelated.create_from_parent_model(item, self.obj.id, commit=True)
+
     def get_unsubscribe_url(self, email):
         username = self.email_to_user.get(email).username
-        url = reverse('bulk-unsubscribe', kwargs={'hash_str': base64.b64encode(username)})
+        url = '{}?id={}'.format(reverse('bulk-unsubscribe', kwargs={'hash_str': base64.b64encode(username)}),
+                                str(self.obj.id))
         return '{prefix}://{site}{url}'.format(url=url, **self.defaults)
 
     def add_unsubscribe_footer(self, email, plaintext_msg=None, html_msg=None):
