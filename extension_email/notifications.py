@@ -7,6 +7,7 @@ from django.db import transaction
 from django.utils.translation import ugettext_lazy as _
 from post_office.mail import send
 from npoed_massmail.base import MassSendEmails
+from plp.models import User
 from .models import EmailRelated
 
 
@@ -23,10 +24,11 @@ class BulkEmailSend(MassSendEmails):
 
     def get_emails(self):
         recipients = self.obj.get_recipients()
-        self.email_to_user = dict([(i.email, i) for i in recipients])
-        self.obj.recipients_number = len(self.email_to_user)
+        users = {i.email: i for i in User.objects.filter(email__in=recipients)}
+        self.email_to_user = dict([(i, users.get(i)) for i in recipients])
+        self.obj.recipients_number = len(recipients)
         self.obj.save()
-        return self.email_to_user.keys()
+        return recipients
 
     def get_subject(self, email=None):
         return self.obj.subject
@@ -61,8 +63,7 @@ class BulkEmailSend(MassSendEmails):
                     EmailRelated.create_from_parent_model(item, self.obj.id, commit=True)
 
     def get_unsubscribe_url(self, email):
-        username = self.email_to_user.get(email).username
-        url = '{}?id={}'.format(reverse('bulk-unsubscribe', kwargs={'hash_str': base64.b64encode(username)}),
+        url = '{}?id={}'.format(reverse('bulk-unsubscribe-v2', kwargs={'hash_str': base64.b64encode(email)}),
                                 str(self.obj.id))
         return '{prefix}://{site}{url}'.format(url=url, **self.defaults)
 
