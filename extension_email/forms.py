@@ -79,7 +79,11 @@ class BulkEmailForm(forms.ModelForm):
     )
     filter_type = forms.ChoiceField(widget=forms.RadioSelect(attrs={'class': 'type-selector'}),
                                     label=_(u'Тип рассылки'),
+                                    required=False,
                                     choices=FILTER_TYPE_CHOICES)
+    subscribed = forms.BooleanField(widget=forms.CheckboxInput(),
+                                    label=_(u'Разослать подписчикам'),
+                                    required=False)
     emails = forms.FileField(
         widget=forms.FileInput(attrs={'data-field-type': 'file'}),
         required=False,
@@ -248,6 +252,8 @@ class BulkEmailForm(forms.ModelForm):
             errors.append(_(u'Невозможно отправить рассылку - проверьте корректность дат регистрации'))
         if register_date_from and register_date_to and register_date_from > register_date_to:
             errors.append(_(u'Невозможно отправить рассылку - проверьте корректность дат последнего входа'))
+        if not self.cleaned_data.get('filter_type') and not self.cleaned_data.get('subscribed'):
+            errors.append(_(u'Не выбраны фильтры для пользователей'))
         if errors:
             self._update_errors(forms.ValidationError({'__all__': errors}))
         return data

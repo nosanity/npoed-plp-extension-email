@@ -16,7 +16,7 @@ from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from api.views.user import ApiKeyPermission
-from plp.models import User
+from plp.models import User, NewsSubscription
 from .forms import BulkEmailForm
 from .models import BulkEmailOptout, SupportEmailTemplate, SupportEmail
 from .tasks import support_mass_send, send_analytics_data, prepare_analytics_data
@@ -61,8 +61,8 @@ class FromSupportView(CreateView):
             msg = ungettext(
                 u'Вы хотите отправить письмо с темой "%(theme)s" %(user_count)s пользователю. Продолжить?',
                 u'Вы хотите отправить письмо с темой "%(theme)s" %(user_count)s пользователям. Продолжить?',
-                users.count()
-            ) % {'theme': item.subject, 'user_count': users.count()}
+                len(users)
+            ) % {'theme': item.subject, 'user_count': len(users)}
         if not error and msg_type != 'to_myself':
             now = timezone.now()
             existing = SupportEmail.objects.filter(
@@ -155,6 +155,38 @@ class MassMailAnalytics(ListView):
                 send_analytics_data.delay(request.user.id)
                 return JsonResponse({'status': 0})
         return JsonResponse({'sync': items_count <= max_sync_items})
+
+
+def unsubscribe_v2(request, hash_str):
+    """
+    отписка от рассылок по уникальному для пользователя (в т.ч. незарегистрированного) хэшу
+    """
+    try:
+        s = base64.b64decode(hash_str)
+    except TypeError:
+        raise Http404
+    user = User.objects.filter(email=s).first()
+    news_subscription = NewsSubscription.objects.filter(email=s).first()
+    news_subscription_unsubscribed = False
+    if news_subscription:
+        news_subscription_unsubscribed = news_subscription.confirmed and news_subscription.unsubscribed
+    if not user and not news_subscription:
+        raise Http404
+    obj_id = request.GET.get('id')
+    if obj_id and not (BulkEmailOptout.objects.filter(user=user).exists() or news_subscription_unsubscribed):
+        try:
+            SupportEmail.objects.filter(id=obj_id).update(unsubscriptions=F('unsubscriptions') + 1)
+            logging.info(u'User %s unsubscribed from mass emails (obj_id %s)' % (s, obj_id))
+        except (ValueError, UnicodeDecodeError) as e:
+            logging.error(u'User %s unsubscribe from mass emails error %s' % (s, e))
+    if user:
+        BulkEmailOptout.objects.get_or_create(user=user)
+    NewsSubscription.objects.filter(email=s).update(unsubscribed=True)
+    context = {
+        'profile_url': '{}/profile/'.format(settings.SSO_NPOED_URL),
+        'user': user,
+    }
+    return render(request, 'extension_email/unsubscribed.html', context)
 
 
 def unsubscribe(request, hash_str):
@@ -268,4 +300,5 @@ class OptoutStatusView(APIView):
             BulkEmailOptout.objects.filter(user=user).delete()
         else:
             BulkEmailOptout.objects.create(user=user)
+            NewsSubscription.objects.filter(email=user.email).update(unsubscribed=True)
         return Response({'status': new_status})

@@ -41,7 +41,6 @@
     function is_valid(e) {
         if (e == undefined) {
             var v = validate_subject();
-            v = validate_filter_type() && v;
             v = validate_html_message() && v;
             v = validate_emails_list() && v;
             v = validate_emails() && v;
@@ -50,9 +49,6 @@
         switch ($(e.target).attr('name')) {
             case 'subject':
                 validate_subject();
-                break;
-            case 'filter_type':
-                validate_filter_type();
                 break;
             case 'html_message':
                 validate_html_message();
@@ -70,12 +66,6 @@
         var val = field.val();
         !val.trim().length ? add_error(field, required_msg) : remove_error(field);
         return !!val.trim().length;
-    }
-    function validate_filter_type() {
-        var field = $('#id_filter_type');
-        var invalid = !$('#id_filter_type input:checked').length;
-        invalid ? add_error(field, required_msg) : remove_error(field);
-        return !invalid;
     }
     function validate_html_message() {
         var field = $('#id_html_message');

@@ -17,11 +17,11 @@ from .notifications import BulkEmailSend
 
 @task
 def support_mass_send(obj_id):
-    logging.info('%s Started sending bulk emails' % timezone.now().strftime('%H:%M:%S %d.%m.%Y'))
+    logging.info(u'%s Started sending bulk emails' % timezone.now().strftime('%H:%M:%S %d.%m.%Y'))
     obj = SupportEmail.objects.get(id=obj_id)
     msgs = BulkEmailSend(obj)
     msgs.send()
-    logging.info('%s Ended sending bulk emails' % timezone.now().strftime('%H:%M:%S %d.%m.%Y'))
+    logging.info(u'%s Finished sending bulk emails' % timezone.now().strftime('%H:%M:%S %d.%m.%Y'))
 
 
 @task
