@@ -53,7 +53,7 @@ def filter_users(support_email):
     if data['session_filter']:
         to_all = False
         session_ids = data['session_filter']
-        dic.update({'participant__session__id__in': session_ids})
+        dic.update({'participants__session__id__in': session_ids})
     subscription_ids = None
     if data['course_filter'] or data['university_filter']:
         to_all = False
@@ -66,7 +66,7 @@ def filter_users(support_email):
         ids = list(CourseSession.objects.filter(course__id__in=ids).values_list('id', flat=True))
         session_ids.extend(ids)
         session_ids = list(set(session_ids))
-        dic.update({'participant__session__id__in': session_ids})
+        dic.update({'participants__session__id__in': session_ids})
 
     instructor_usernames = []
     if data.get('instructors_filter', '') != '':
@@ -132,13 +132,13 @@ def filter_users(support_email):
             dic['id__in'] = have_cert
 
     if 'id__in' in dic:
-        dic.pop('participant__session__id__in', None)
+        dic.pop('participants__session__id__in', None)
     if subscription_ids is not None:
         # условия фильтрации пользователей по записям ИЛИ подписке на новости
         dic2 = dic.copy()
-        dic2.pop('participant__session__id__in', None)
+        dic2.pop('participants__session__id__in', None)
         dic2['id__in'] = subscription_ids
-        if 'id__in' in dic or 'participant__session__id__in' in dic:
+        if 'id__in' in dic or 'participants__session__id__in' in dic:
             users = User.objects.filter(Q(**dic) | Q(**dic2))
         else:
             users = User.objects.filter(**dic2)
