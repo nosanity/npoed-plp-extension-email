@@ -22,7 +22,7 @@ class SupportEmailAdminForm(forms.ModelForm):
 
 @admin.register(SupportEmail)
 class SupportEmailAdmin(admin.ModelAdmin):
-    list_display = ('sender', 'subject', 'created')
+    list_display = ('sender', 'subject', 'created', 'confirmed', )
     form = SupportEmailAdminForm
 
 
