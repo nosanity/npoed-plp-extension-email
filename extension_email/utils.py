@@ -2,9 +2,10 @@
 
 from django.db.models import Q
 from django.utils import timezone
-from plp.models import User, EnrollmentReason, Participant, Subscription, Course, CourseSession
+from plp.models import User, EnrollmentReason, Participant, Subscription, Course, CourseSession, NewsSubscription
 from plp.utils.edx_enrollment import EDXEnrollment, EDXEnrollmentError
 from .forms import BulkEmailForm, CustomUnicodeCourseSession
+from .models import BulkEmailOptout
 
 
 class EdxEnrollmentWithPerms(EDXEnrollment):
@@ -18,7 +19,7 @@ class EdxEnrollmentWithPerms(EDXEnrollment):
 def filter_users(support_email):
     """
     Фильтрация пользователей по данным модели массовой рассылки.
-    Возвращает queryset пользователей и тип фильтра ('to_all', 'to_myself' или '')
+    Возвращает сет емейлов пользователей и тип фильтра ('to_all', 'to_myself' или '')
     """
     def _check_enrollment_type_chosen():
         return data['enrollment_type'] != BulkEmailForm.ENROLLMENT_TYPE_INITIAL
@@ -27,11 +28,25 @@ def filter_users(support_email):
         return len(data['got_certificate'])
 
     data = support_email.target
+    subscribed_emails = set()
+    if data.get('subscribed'):
+        subscribed_emails = set(NewsSubscription.objects.filter(confirmed=True, unsubscribed=False).
+                                values_list('email', flat=True))
+    if not data.get('filter_type') and data.get('subscribed'):
+        return subscribed_emails, ''
     by_email = data.get('emails') or data.get('emails_list')
     if by_email:
-        return User.objects.filter(email__in=by_email), ''
+        emails = set(User.objects.filter(email__in=by_email, bulk_email_optout__isnull=True, is_active=True).
+                     values_list('email', flat=True))
+        if data.get('subscribed'):
+            emails = emails.union(subscribed_emails)
+        return emails, ''
     if data.get('to_myself'):
-        return User.objects.filter(username=support_email.sender.username), 'to_myself'
+        emails = {support_email.sender.email}
+        if data.get('subscribed'):
+            emails = emails.union(subscribed_emails)
+            return emails, ''
+        return emails, 'to_myself'
     dic = {'bulk_email_optout__isnull': True, 'is_active': True}
     dic_exclude = {}
     session_ids = []
@@ -150,4 +165,7 @@ def filter_users(support_email):
         q = Q(username__in=instructor_usernames)
         q = q if data['instructors_filter'] == 'only' else ~q
         users = users.filter(q)
-    return users, 'to_all' if to_all else ''
+    emails = set(users.values_list('email', flat=True))
+    if data.get('subscribed'):
+        emails = emails.union(subscribed_emails)
+    return emails, 'to_all' if to_all else ''

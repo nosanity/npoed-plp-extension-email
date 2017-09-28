@@ -1,23 +1,25 @@
 # coding: utf-8
 
 import base64
+import logging
 from django.conf import settings
 from django.core.urlresolvers import reverse_lazy
-from django.http import Http404, JsonResponse
+from django.db.models import F
+from django.http import Http404, JsonResponse, HttpResponse
 from django.shortcuts import render
 from django.template.loader import get_template
 from django.utils import timezone
 from django.utils.translation import ugettext as _, ungettext
 from django.views.decorators.http import require_POST
-from django.views.generic import CreateView
+from django.views.generic import CreateView, ListView
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from api.views.user import ApiKeyPermission
-from plp.models import User
+from plp.models import User, NewsSubscription
 from .forms import BulkEmailForm
 from .models import BulkEmailOptout, SupportEmailTemplate, SupportEmail
-from .tasks import support_mass_send
+from .tasks import support_mass_send, send_analytics_data, prepare_analytics_data
 from .utils import filter_users
 
 
@@ -59,8 +61,8 @@ class FromSupportView(CreateView):
             msg = ungettext(
                 u'Вы хотите отправить письмо с темой "%(theme)s" %(user_count)s пользователю. Продолжить?',
                 u'Вы хотите отправить письмо с темой "%(theme)s" %(user_count)s пользователям. Продолжить?',
-                users.count()
-            ) % {'theme': item.subject, 'user_count': users.count()}
+                len(users)
+            ) % {'theme': item.subject, 'user_count': len(users)}
         if not error and msg_type != 'to_myself':
             now = timezone.now()
             existing = SupportEmail.objects.filter(
@@ -118,6 +120,75 @@ def confirm_sending(request):
     return JsonResponse({'status': 0})
 
 
+class MassMailAnalytics(ListView):
+    template_name = 'extension_email/analytics.html'
+    model = SupportEmail
+    paginate_by = 20
+    queryset = SupportEmail.objects.all()
+    ordering = ['-created']
+    headers = (_(u'Дата рассылки'), _(u'Время рассылки'), _(u'Тема рассылки'),
+               _(u'Размер базы'), _(u'Количество доставленных писем'), _(u'Количество отписок'))
+
+    def dispatch(self, request, *args, **kwargs):
+        if request.user.is_staff:
+            return super(MassMailAnalytics, self).dispatch(request, *args, **kwargs)
+        raise Http404
+
+    def get_context_data(self, **kwargs):
+        data = super(MassMailAnalytics, self).get_context_data(**kwargs)
+        data['headers'] = self.headers
+        return data
+
+    def post(self, request):
+        items_count = self.get_queryset().count()
+        # максимальное число строк которое можно выдать csv файлом синхронно
+        max_sync_items = getattr(settings, 'SUPPORT_EMAIL_MAX_SYNC_ANALYTICS', 1000)
+        if 'download' in request.POST:
+            if items_count <= max_sync_items:
+                dt = timezone.localtime(timezone.now()).strftime('%Y_%m_%d__%H_%M')
+                result = prepare_analytics_data()
+                resp = HttpResponse(result, content_type='text/csv; charset=utf8')
+                resp['Content-Disposition'] = 'attachment; filename=%s' % \
+                                              'email_analytics_{}.csv'.format(dt)
+                return resp
+            else:
+                send_analytics_data.delay(request.user.id)
+                return JsonResponse({'status': 0})
+        return JsonResponse({'sync': items_count <= max_sync_items})
+
+
+def unsubscribe_v2(request, hash_str):
+    """
+    отписка от рассылок по уникальному для пользователя (в т.ч. незарегистрированного) хэшу
+    """
+    try:
+        s = base64.b64decode(hash_str)
+    except TypeError:
+        raise Http404
+    user = User.objects.filter(email=s).first()
+    news_subscription = NewsSubscription.objects.filter(email=s).first()
+    news_subscription_unsubscribed = False
+    if news_subscription:
+        news_subscription_unsubscribed = news_subscription.confirmed and news_subscription.unsubscribed
+    if not user and not news_subscription:
+        raise Http404
+    obj_id = request.GET.get('id')
+    if obj_id and not (BulkEmailOptout.objects.filter(user=user).exists() or news_subscription_unsubscribed):
+        try:
+            SupportEmail.objects.filter(id=obj_id).update(unsubscriptions=F('unsubscriptions') + 1)
+            logging.info(u'User %s unsubscribed from mass emails (obj_id %s)' % (s, obj_id))
+        except (ValueError, UnicodeDecodeError) as e:
+            logging.error(u'User %s unsubscribe from mass emails error %s' % (s, e))
+    if user:
+        BulkEmailOptout.objects.get_or_create(user=user)
+    NewsSubscription.objects.filter(email=s).update(unsubscribed=True)
+    context = {
+        'profile_url': '{}/profile/'.format(settings.SSO_NPOED_URL),
+        'user': user,
+    }
+    return render(request, 'extension_email/unsubscribed.html', context)
+
+
 def unsubscribe(request, hash_str):
     """
     отписка от рассылок по уникальному для пользователя хэшу
@@ -130,6 +201,13 @@ def unsubscribe(request, hash_str):
         user = User.objects.get(username=s)
     except User.DoesNotExist:
         raise Http404
+    obj_id = request.GET.get('id')
+    if obj_id and not BulkEmailOptout.objects.filter(user=user).exists():
+        try:
+            SupportEmail.objects.filter(id=obj_id).update(unsubscriptions=F('unsubscriptions') + 1)
+            logging.info(u'User %s unsubscribed from mass emails (obj_id %s)' % (request.user.email, obj_id))
+        except (ValueError, UnicodeDecodeError) as e:
+            logging.error(u'User %s unsubscribe from mass emails error %s' % (request.user.email, e))
     BulkEmailOptout.objects.get_or_create(user=user)
     context = {
         'profile_url': '{}/profile/'.format(settings.SSO_NPOED_URL),
@@ -222,4 +300,5 @@ class OptoutStatusView(APIView):
             BulkEmailOptout.objects.filter(user=user).delete()
         else:
             BulkEmailOptout.objects.create(user=user)
+            NewsSubscription.objects.filter(email=user.email).update(unsubscribed=True)
         return Response({'status': new_status})

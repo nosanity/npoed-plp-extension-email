@@ -1,0 +1,103 @@
+{% extends 'extension_email/base_main.html' %}
+{% load i18n %}
+{% load static from staticfiles %}
+
+{% block analytics_block %} class="active"{% endblock %}
+
+{% block modal_window %}
+<div class="modal fade text-left" tabindex="2" role="dialog" id="modalDialog">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-body">
+          <p>
+              {% blocktrans trimmed %}
+                  Генерирутеся csv файл. По завершении генерации он будет отправлен вам на почту.
+              {% endblocktrans %}
+          </p>
+      </div>
+      <div class="modal-footer">
+        <div class="clearfix" id="modal-fail-buttons">
+          <span data-dismiss="modal" class="btn btn-default pull-left">{% blocktrans %}Закрыть{% endblocktrans %}</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block page_content %}
+    <form id="downloadCsvForm" method="post">
+        {% csrf_token %}
+        <input type="hidden" name="download" value="">
+        <button id="downloadCsv" class="button button-success">{% blocktrans %}Скачать csv{% endblocktrans %}</button>
+    </form>
+    <br>
+    <table class="table table-bordered">
+        <tr>
+            {% for header in headers %}
+                <th>{{ header }}</th>
+            {% endfor %}
+        </tr>
+        {% for object in object_list %}
+            <tr>
+                <td>{{ object.created|date:"SHORT_DATE_FORMAT" }}</td>
+                <td>{{ object.created|date:"H:i" }}</td>
+                <td>{{ object.subject }}</td>
+                <td>{{ object.recipients_number }}</td>
+                <td>{{ object.delivered_number }}</td>
+                <td>{{ object.unsubscriptions }}</td>
+            </tr>
+        {% endfor %}
+    </table>
+
+    {% if is_paginated %}
+      <ul class="pagination">
+        {% if page_obj.has_previous %}
+          <li><a href="?page={{ page_obj.previous_page_number }}">&laquo;</a></li>
+        {% else %}
+          <li class="disabled"><span>&laquo;</span></li>
+        {% endif %}
+        {% for i in paginator.page_range %}
+          {% if page_obj.number == i %}
+            <li class="active"><span>{{ i }} <span class="sr-only">(current)</span></span></li>
+          {% else %}
+            <li><a href="?page={{ i }}">{{ i }}</a></li>
+          {% endif %}
+        {% endfor %}
+        {% if page_obj.has_next %}
+          <li><a href="?page={{ page_obj.next_page_number }}">&raquo;</a></li>
+        {% else %}
+          <li class="disabled"><span>&raquo;</span></li>
+        {% endif %}
+      </ul>
+    {% endif %}
+{% endblock %}
+
+{% block styling %}
+    <link rel="stylesheet" type="text/css" href="{% static 'admin/css/base.css' %}"/>
+    <link rel="stylesheet" type="text/css" href="{% static 'admin/css/widgets.css' %}"/>
+    <link rel="stylesheet" type="text/css" href="{% static 'admin/css/forms.css' %}"/>
+    {{ block.super }}
+    {% include 'extension_email/_css_main.html' %}
+{% endblock %}
+
+{% block javascript %}
+    {{ block.super }}
+    <script type="text/javascript">
+        $(document).ready(function() {
+            $('#downloadCsv').click(function(e) {
+                e.preventDefault();
+                $.post('', {}, function(data) {
+                    if (data.sync) {
+                        $('#downloadCsvForm').submit();
+                    }
+                    else {
+                        $.post('', {'download': ''}, function() {
+                            $('#modalDialog').modal('show');
+                        })
+                    }
+                })
+            })
+        });
+    </script>
+{% endblock %}

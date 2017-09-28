@@ -9,12 +9,22 @@
     <div class="issue">
         <h1>Отписка от рассылок</h1>
         {% url 'my' as courses_url %}
+        {% url 'frontpage' as frontpage_url %}
         <p>
         {% blocktrans trimmed %}
         Вы больше не будете получать информационные рассылки команды платформы {{ PLATFORM_NAME }}.
-        Снова подписаться на рассылки вы можете на странице <a href="{{ profile_url }}">мой профиль</a>.
         {% endblocktrans %}
+        {% if user %}
+            {% blocktrans trimmed %}
+            Снова подписаться на рассылки вы можете на странице <a href="{{ profile_url }}">мой профиль</a>.
+            {% endblocktrans %}
+        {% else %}
+            {% blocktrans trimmed %}
+            Снова подписаться на рассылки вы можете на странице <a href="{{ frontpage_url }}">Открытое образование</a>.
+            {% endblocktrans %}
+        {% endif %}
         </p>
+        {% if user %}
         <p>
         {% blocktrans trimmed %}
         Обращаем ваше внимание, что настройки подписки на информационные сообщения авторов курсов,
@@ -22,5 +32,6 @@
         Управлять рассылками от авторов курсов вы можете на странице <a href="{{ courses_url }}">мои курсы</a>.
         {% endblocktrans %}
         </p>
+        {% endif %}
     </div>
 {% endblock %}
