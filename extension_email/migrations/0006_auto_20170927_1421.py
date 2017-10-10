@@ -7,7 +7,7 @@ from django.db import models, migrations
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('post_office', '0004_auto_20161111_1752'),
+        ('post_office', '0003_longer_subject'),
         ('extension_email', '0005_auto_20170622_1712'),
     ]
 
