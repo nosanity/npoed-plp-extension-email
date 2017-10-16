@@ -69,9 +69,9 @@ class BulkEmailSend(MassSendEmails):
     def add_unsubscribe_footer(self, email, plaintext_msg=None, html_msg=None):
         url = self.get_unsubscribe_url(email)
         if plaintext_msg:
-            return _(u'{0}\n\nДля отписки от информационной рассылки команды платформы {1} перейдите '
-                     u'по ссылке {2}'.format(plaintext_msg, self.defaults['PLATFORM_NAME'], url))
+            return _(u'{0}\n\nДля отписки от информационной рассылки перейдите '
+                     u'по ссылке {1}'.format(plaintext_msg, url))
         if html_msg:
-            return _(u'{0}<br/><p>Для отписки от информационной рассылки команды платформы {1} перейдите '
-                     u'<a href="{2}">по ссылке</a></p>'.format(html_msg, self.defaults['PLATFORM_NAME'], url))
+            return _(u'{0}<br/><p>Для отписки от информационной рассылки перейдите '
+                     u'<a href="{1}">по ссылке</a></p>'.format(html_msg, url))
         return ''
