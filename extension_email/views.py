@@ -72,15 +72,17 @@ class FromSupportView(CreateView):
                 modified__gt=now - timezone.timedelta(hours=24)
             ).order_by('-created').first()
             if existing:
-                user_count = existing.recipients_number or 0
+                user_count = len(users)
                 delta = now - existing.modified
                 hours_ago = delta.seconds / 3600
                 minutes_ago = (delta - hours_ago * timezone.timedelta(hours=1)).seconds / 60
                 msg = ungettext(
-                    u'Письмо с темой "{subject}" было отправлено пользователем {user} {user_count} пользователю '
-                    u'{hours_ago} {minutes_ago} назад. Хотите отправить еще раз?',
-                    u'Письмо с темой "{subject}" было отправлено пользователем {user} {user_count} пользователям '
-                    u'{hours_ago} {minutes_ago} назад. Хотите отправить еще раз?',
+                    u'Вы хотите отправить письмо с темой "{subject}" {user_count} пользователю? '
+                    u'Предыдущее письмо с такой темой было отправлено пользователем '
+                    u'{user} {hours_ago} {minutes_ago} назад',
+                    u'Вы хотите отправить письмо с темой "{subject}" {user_count} пользователям? '
+                    u'Предыдущее письмо с такой темой было отправлено пользователем '
+                    u'{user} {hours_ago} {minutes_ago} назад',
                     user_count).format(**{
                         'subject': item.subject,
                         'user': existing.sender.username,
