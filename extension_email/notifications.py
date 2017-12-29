@@ -62,8 +62,10 @@ class BulkEmailSend(MassSendEmails):
                     EmailRelated.create_from_parent_model(item, self.obj.id, commit=True)
 
     def get_unsubscribe_url(self, email):
-        url = '{}?id={}'.format(reverse('bulk-unsubscribe-v2', kwargs={'hash_str': base64.b64encode(email)}),
-                                str(self.obj.id))
+        url = '{}?id={}'.format(
+            reverse('bulk-unsubscribe-v2', kwargs={'hash_str': base64.b64encode(email.encode('utf8'))}),
+            str(self.obj.id)
+        )
         return '{prefix}://{site}{url}'.format(url=url, **self.defaults)
 
     def add_unsubscribe_footer(self, email, plaintext_msg=None, html_msg=None):
