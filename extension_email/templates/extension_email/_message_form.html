@@ -1,6 +1,6 @@
 {% load i18n %}
 
-<form method="post" id="massNewsForm" enctype="multipart/form-data">
+<form method="post" id="massNewsForm" enctype="multipart/form-data" novalidate>
     {% csrf_token %}
     {% if form.non_field_errors %}
     <div class="form-row errors">{{ form.non_field_errors }}</div>
