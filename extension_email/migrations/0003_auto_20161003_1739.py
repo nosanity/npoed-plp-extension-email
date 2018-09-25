@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-from __future__ import unicode_literals
+
 
 from django.db import models, migrations
 import jsonfield.fields
@@ -8,7 +8,7 @@ import jsonfield.fields
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('plp', '0070_celeryuniquetask'),
+        ('plp', '0001_squashed_0244_merge'),
         ('extension_email', '0002_bulkemailoptout'),
     ]
 
