@@ -17,11 +17,11 @@ from .notifications import BulkEmailSend
 
 @task
 def support_mass_send(obj_id):
-    logging.info(u'%s Started sending bulk emails' % timezone.now().strftime('%H:%M:%S %d.%m.%Y'))
+    logging.info('%s Started sending bulk emails' % timezone.now().strftime('%H:%M:%S %d.%m.%Y'))
     obj = SupportEmail.objects.get(id=obj_id)
     msgs = BulkEmailSend(obj)
     msgs.send()
-    logging.info(u'%s Finished sending bulk emails' % timezone.now().strftime('%H:%M:%S %d.%m.%Y'))
+    logging.info('%s Finished sending bulk emails' % timezone.now().strftime('%H:%M:%S %d.%m.%Y'))
 
 
 @task
@@ -29,11 +29,11 @@ def send_analytics_data(user_id):
     user = get_user_model().objects.get(id=user_id)
     data = prepare_analytics_data()
     dt = timezone.localtime(timezone.now()).strftime('%Y_%m_%d__%H_%M')
-    with tempfile.SpooledTemporaryFile() as tmp:
+    with tempfile.SpooledTemporaryFile(mode='w') as tmp:
         tmp.write(data)
         tmp.seek(0)
-        m = Message(subject=_(u'Аналитика по массовым рассылкам'),
-                    text=_(u'Аналитика по массовым рассылкам'),
+        m = Message(subject=_('Аналитика по массовым рассылкам'),
+                    text=_('Аналитика по массовым рассылкам'),
                     mail_from=settings.EMAIL_NOTIFICATIONS_FROM,
                     mail_to=user.email)
         m.attach(filename='email_analytics_{}.csv'.format(dt), data=tmp)
@@ -41,16 +41,13 @@ def send_analytics_data(user_id):
 
 
 def prepare_analytics_data():
-    def _encode(arr):
-        return [unicode(cn).encode('utf-8', 'ignore') for cn in arr]
-
-    headers = (_(u'Дата рассылки'), _(u'Время рассылки'), _(u'Тема рассылки'),
-               _(u'Размер базы'), _(u'Количество доставленных писем'), _(u'Количество отписок'))
+    headers = (_('Дата рассылки'), _('Время рассылки'), _('Тема рассылки'),
+               _('Размер базы'), _('Количество доставленных писем'), _('Количество отписок'))
     qs = SupportEmail.objects.order_by('-created')
-    with tempfile.SpooledTemporaryFile() as csv_file:
-        csv_file.write(codecs.BOM_UTF8)
+    with tempfile.SpooledTemporaryFile(mode='w') as csv_file:
+        csv_file.write(codecs.BOM_UTF8.decode('utf8'))
         writer = csv.writer(csv_file, delimiter=';')
-        writer.writerow(_encode(headers))
+        writer.writerow(headers)
         for item in qs:
             dt = timezone.localtime(item.created)
             row = [
@@ -61,6 +58,6 @@ def prepare_analytics_data():
                 str(item.delivered_number),
                 str(item.unsubscriptions),
             ]
-            writer.writerow(_encode(row))
+            writer.writerow(row)
         csv_file.seek(0)
         return csv_file.read()

@@ -1,35 +1,37 @@
 # coding: utf-8
 
 from django.db import models
-from django.dispatch import receiver
+from django.dispatch import receiver, Signal
 from django.utils.translation import ugettext_lazy as _
 from jsonfield import JSONField
 from post_office.models import Email, STATUS
 from plp.models import User
+
+emails_sent_signal = Signal(providing_args=['status', 'ids'])
 
 
 class SupportEmail(models.Model):
     """
     Модель для сохранения информации и настроек массовой рассылки
     """
-    sender = models.ForeignKey(User, verbose_name=_(u'Отправитель'))
+    sender = models.ForeignKey(User, verbose_name=_('Отправитель'), on_delete=models.CASCADE)
     target = JSONField(blank=True, null=True)
-    subject = models.CharField(max_length=128, blank=True, verbose_name=_(u'Тема'))
-    html_message = models.TextField(null=True, blank=True, verbose_name=_(u'HTML письма'))
-    text_message = models.TextField(null=True, blank=True, verbose_name=_(u'Текст письма'))
-    confirmed = models.BooleanField(verbose_name=_(u'Отправка подтверждена'), default=True)
-    to_myself = models.BooleanField(default=False, verbose_name=_(u'Сообщение только себе'))
+    subject = models.CharField(max_length=128, blank=True, verbose_name=_('Тема'))
+    html_message = models.TextField(null=True, blank=True, verbose_name=_('HTML письма'))
+    text_message = models.TextField(null=True, blank=True, verbose_name=_('Текст письма'))
+    confirmed = models.BooleanField(verbose_name=_('Отправка подтверждена'), default=True)
+    to_myself = models.BooleanField(default=False, verbose_name=_('Сообщение только себе'))
     created = models.DateTimeField(auto_now_add=True)
     modified = models.DateTimeField(auto_now=True)
-    unsubscriptions = models.PositiveIntegerField(default=0, verbose_name=_(u'Количество отписавшихся'))
-    recipients_number = models.PositiveIntegerField(default=0, verbose_name=_(u'Количество получателей'))
-    delivered_number = models.PositiveIntegerField(default=0, verbose_name=_(u'Доставлено писем'))
+    unsubscriptions = models.PositiveIntegerField(default=0, verbose_name=_('Количество отписавшихся'))
+    recipients_number = models.PositiveIntegerField(default=0, verbose_name=_('Количество получателей'))
+    delivered_number = models.PositiveIntegerField(default=0, verbose_name=_('Доставлено писем'))
 
     class Meta:
-        verbose_name = _(u'Рассылка')
-        verbose_name_plural = _(u'Рассылки')
+        verbose_name = _('Рассылка')
+        verbose_name_plural = _('Рассылки')
 
-    def __unicode__(self):
+    def __str__(self):
         return '%s - %s' % (self.sender, self.subject)
 
     def get_recipients(self):
@@ -40,27 +42,28 @@ class SupportEmail(models.Model):
 
 
 class BulkEmailOptout(models.Model):
-    user = models.ForeignKey(User, verbose_name=_(u'Пользователь'), related_name='bulk_email_optout')
+    user = models.ForeignKey(User, verbose_name=_('Пользователь'), related_name='bulk_email_optout',
+                             on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True,
-                                      verbose_name=_(u'Когда пользователь отписался от рассылки'))
+                                      verbose_name=_('Когда пользователь отписался от рассылки'))
 
     class Meta:
-        verbose_name = _(u'Отписка от рассылок')
-        verbose_name_plural = _(u'Отписки от рассылок')
+        verbose_name = _('Отписка от рассылок')
+        verbose_name_plural = _('Отписки от рассылок')
 
 
 class SupportEmailTemplate(models.Model):
-    slug = models.CharField(max_length=128, verbose_name=_(u'Название шаблона'), unique=True)
-    subject = models.CharField(max_length=128, verbose_name=_(u'Тема'))
-    html_message = models.TextField(verbose_name=_(u'HTML письма'))
-    text_message = models.TextField(null=True, blank=True, verbose_name=_(u'Текст письма'))
+    slug = models.CharField(max_length=128, verbose_name=_('Название шаблона'), unique=True)
+    subject = models.CharField(max_length=128, verbose_name=_('Тема'))
+    html_message = models.TextField(verbose_name=_('HTML письма'))
+    text_message = models.TextField(null=True, blank=True, verbose_name=_('Текст письма'))
 
-    def __unicode__(self):
+    def __str__(self):
         return self.slug
 
     class Meta:
-        verbose_name = _(u'Шаблон рассылки')
-        verbose_name_plural = _(u'Шаблоны рассылок')
+        verbose_name = _('Шаблон рассылки')
+        verbose_name_plural = _('Шаблоны рассылок')
 
 
 class EmailRelated(Email):
@@ -91,15 +94,11 @@ class EmailRelated(Email):
         return result
 
 
-@receiver(models.signals.post_save, sender=Email)
-def update_delivered_number(sender, instance, **kwargs):
-    """
-    Если этот объект Email имеет отношение к массовой рассылке, увеличиваем количество
-    доставленных писем при успешном статусе
-    """
-    try:
-        if instance.status == STATUS.sent and instance.emailrelated:
-            SupportEmail.objects.filter(id=instance.emailrelated.mass_mail_id).update(
-                delivered_number=models.F('delivered_number') + 1)
-    except EmailRelated.DoesNotExist:
-        pass
+@receiver(emails_sent_signal)
+def update_delivered_number(sender, **kwargs):
+    status = kwargs['status']
+    ids = kwargs['ids']
+    if status == STATUS.sent:
+        for item in EmailRelated.objects.filter(id__in=ids).values('mass_mail_id').annotate(num=models.Count('id')):
+            SupportEmail.objects.filter(id=item['mass_mail_id']).update(
+                delivered_number=models.F('delivered_number') + item['num'])
