@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-from __future__ import unicode_literals
+
 
 from django.db import models, migrations
 
@@ -15,7 +15,7 @@ class Migration(migrations.Migration):
         migrations.CreateModel(
             name='EmailRelated',
             fields=[
-                ('email_ptr', models.OneToOneField(parent_link=True, auto_created=True, primary_key=True, serialize=False, to='post_office.Email')),
+                ('email_ptr', models.OneToOneField(parent_link=True, auto_created=True, primary_key=True, serialize=False, to='post_office.Email', on_delete=models.CASCADE)),
                 ('mass_mail_id', models.PositiveIntegerField()),
             ],
             bases=('post_office.email',),

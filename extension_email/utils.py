@@ -85,7 +85,7 @@ def filter_users(support_email):
 
     instructor_usernames = []
     if data.get('instructors_filter', '') != '':
-        iterator = session_ids if session_ids else session_id_to_code.keys()
+        iterator = session_ids if session_ids else list(session_id_to_code.keys())
         for i in iterator:
             instructor_usernames.extend(edx_resp.get(session_id_to_code[i], []))
         instructor_usernames = list(set(instructor_usernames))

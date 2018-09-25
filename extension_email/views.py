@@ -3,11 +3,11 @@
 import base64
 import logging
 from django.conf import settings
-from django.core.urlresolvers import reverse_lazy
 from django.db.models import F
 from django.http import Http404, JsonResponse, HttpResponse
 from django.shortcuts import render
 from django.template.loader import get_template
+from django.urls import reverse_lazy
 from django.utils import timezone
 from django.utils.translation import ugettext as _, ungettext
 from django.views.decorators.http import require_POST
@@ -49,18 +49,18 @@ class FromSupportView(CreateView):
         users, msg_type = filter_users(item)
         error = False
         if msg_type == 'to_myself':
-            msg = _(u'Вы уверены, что хотите отправить это сообщение себе?')
+            msg = _('Вы уверены, что хотите отправить это сообщение себе?')
             item.to_myself = True
         elif msg_type == 'to_all':
-            msg = _(u'Вы хотите отправить письмо с темой "%(theme)s" всем пользователям. Продолжить?') % \
+            msg = _('Вы хотите отправить письмо с темой "%(theme)s" всем пользователям. Продолжить?') % \
                   {'theme': item.subject}
         elif msg_type == 'error':
-            msg = _(u'Ошибка коммуникации с EDX')
+            msg = _('Ошибка коммуникации с EDX')
             error = True
         else:
             msg = ungettext(
-                u'Вы хотите отправить письмо с темой "%(theme)s" %(user_count)s пользователю. Продолжить?',
-                u'Вы хотите отправить письмо с темой "%(theme)s" %(user_count)s пользователям. Продолжить?',
+                'Вы хотите отправить письмо с темой "%(theme)s" %(user_count)s пользователю. Продолжить?',
+                'Вы хотите отправить письмо с темой "%(theme)s" %(user_count)s пользователям. Продолжить?',
                 len(users)
             ) % {'theme': item.subject, 'user_count': len(users)}
         if not error and msg_type != 'to_myself':
@@ -77,16 +77,16 @@ class FromSupportView(CreateView):
                 hours_ago = delta.seconds / 3600
                 minutes_ago = (delta - hours_ago * timezone.timedelta(hours=1)).seconds / 60
                 msg = ungettext(
-                    u'Письмо с темой "{subject}" было отправлено пользователем {user} {user_count} пользователю '
-                    u'{hours_ago} {minutes_ago} назад. Хотите отправить еще раз?',
-                    u'Письмо с темой "{subject}" было отправлено пользователем {user} {user_count} пользователям '
-                    u'{hours_ago} {minutes_ago} назад. Хотите отправить еще раз?',
+                    'Письмо с темой "{subject}" было отправлено пользователем {user} {user_count} пользователю '
+                    '{hours_ago} {minutes_ago} назад. Хотите отправить еще раз?',
+                    'Письмо с темой "{subject}" было отправлено пользователем {user} {user_count} пользователям '
+                    '{hours_ago} {minutes_ago} назад. Хотите отправить еще раз?',
                     user_count).format(**{
                         'subject': item.subject,
                         'user': existing.sender.username,
                         'user_count': user_count,
-                        'hours_ago': ungettext(u'{counter} час', u'{counter} часов', hours_ago).format(counter=hours_ago),
-                        'minutes_ago': ungettext(u'{counter} минуту', u'{counter} минут', minutes_ago).format(counter=minutes_ago)
+                        'hours_ago': ungettext('{counter} час', '{counter} часов', hours_ago).format(counter=hours_ago),
+                        'minutes_ago': ungettext('{counter} минуту', '{counter} минут', minutes_ago).format(counter=minutes_ago)
                     })
         if not error:
             item.save()
@@ -126,8 +126,8 @@ class MassMailAnalytics(ListView):
     paginate_by = 20
     queryset = SupportEmail.objects.all()
     ordering = ['-created']
-    headers = (_(u'Дата рассылки'), _(u'Время рассылки'), _(u'Тема рассылки'),
-               _(u'Размер базы'), _(u'Количество доставленных писем'), _(u'Количество отписок'))
+    headers = (_('Дата рассылки'), _('Время рассылки'), _('Тема рассылки'),
+               _('Размер базы'), _('Количество доставленных писем'), _('Количество отписок'))
 
     def dispatch(self, request, *args, **kwargs):
         if request.user.is_staff:
@@ -162,7 +162,7 @@ def unsubscribe_v2(request, hash_str):
     отписка от рассылок по уникальному для пользователя (в т.ч. незарегистрированного) хэшу
     """
     try:
-        s = base64.b64decode(hash_str)
+        s = base64.b64decode(hash_str).decode('utf8')
     except TypeError:
         raise Http404
     user = User.objects.filter(email=s).first()
@@ -176,9 +176,9 @@ def unsubscribe_v2(request, hash_str):
     if obj_id and not (BulkEmailOptout.objects.filter(user=user).exists() or news_subscription_unsubscribed):
         try:
             SupportEmail.objects.filter(id=obj_id).update(unsubscriptions=F('unsubscriptions') + 1)
-            logging.info(u'User %s unsubscribed from mass emails (obj_id %s)' % (s, obj_id))
+            logging.info('User %s unsubscribed from mass emails (obj_id %s)' % (s, obj_id))
         except (ValueError, UnicodeDecodeError) as e:
-            logging.error(u'User %s unsubscribe from mass emails error %s' % (s, e))
+            logging.error('User %s unsubscribe from mass emails error %s' % (s, e))
     if user:
         BulkEmailOptout.objects.get_or_create(user=user)
     NewsSubscription.objects.filter(email=s).update(unsubscribed=True)
@@ -205,9 +205,9 @@ def unsubscribe(request, hash_str):
     if obj_id and not BulkEmailOptout.objects.filter(user=user).exists():
         try:
             SupportEmail.objects.filter(id=obj_id).update(unsubscriptions=F('unsubscriptions') + 1)
-            logging.info(u'User %s unsubscribed from mass emails (obj_id %s)' % (request.user.email, obj_id))
+            logging.info('User %s unsubscribed from mass emails (obj_id %s)' % (request.user.email, obj_id))
         except (ValueError, UnicodeDecodeError) as e:
-            logging.error(u'User %s unsubscribe from mass emails error %s' % (request.user.email, e))
+            logging.error('User %s unsubscribe from mass emails error %s' % (request.user.email, e))
     BulkEmailOptout.objects.get_or_create(user=user)
     context = {
         'profile_url': '{}/profile/'.format(settings.SSO_NPOED_URL),
@@ -285,7 +285,7 @@ class OptoutStatusView(APIView):
     def post(self, request, *args, **kwargs):
         username = request.data.get('user')
         new_status = request.data.get('status')
-        if isinstance(new_status, basestring):
+        if isinstance(new_status, str):
             new_status = new_status.lower() != 'false'
         if not username or new_status is None:
             return Response(status=status.HTTP_400_BAD_REQUEST)
