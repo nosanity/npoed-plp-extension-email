@@ -2,11 +2,11 @@
 
 from django import forms
 from django.contrib import admin
-from plp.widgets import ModelSelect2Bootstrap
+from dal.autocomplete import ModelSelect2
 from .models import SupportEmail, BulkEmailOptout, SupportEmailTemplate
 
 
-user_autocomplete_widget = ModelSelect2Bootstrap(
+user_autocomplete_widget = ModelSelect2(
     url='user-autocomplete', attrs={'data-theme': 'classic', 'style': 'min-width: 300px;'}
 )
 
