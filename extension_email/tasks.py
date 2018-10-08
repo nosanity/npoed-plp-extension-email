@@ -17,11 +17,13 @@ from .notifications import BulkEmailSend
 
 @task
 def support_mass_send(obj_id):
-    logging.info('%s Started sending bulk emails' % timezone.now().strftime('%H:%M:%S %d.%m.%Y'))
-    obj = SupportEmail.objects.get(id=obj_id)
-    msgs = BulkEmailSend(obj)
-    msgs.send()
-    logging.info('%s Finished sending bulk emails' % timezone.now().strftime('%H:%M:%S %d.%m.%Y'))
+    """
+    Сначала создаются объекты SupportEmailStatus для всех получателей,
+    потом вызывается команда send_support_mail, которая работает как send_queued_mail
+    из post_office за исключением того, что здесь не сохраняется текст письма для каждого
+    из пользователей, письмо генерируется и отправляется, используя шаблон из SupportEmail
+    """
+    SupportEmail.objects.get(id=obj_id).prepare_mass_send()
 
 
 @task

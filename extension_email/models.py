@@ -1,5 +1,6 @@
 # coding: utf-8
 
+from django.conf import settings
 from django.db import models
 from django.dispatch import receiver, Signal
 from django.utils.translation import ugettext_lazy as _
@@ -40,6 +41,25 @@ class SupportEmail(models.Model):
             return filter_users(self)[0]
         return []
 
+    def prepare_mass_send(self):
+        """
+        Для вызова из celery таски. Создает объекты SupportEmailStatus для всех получателей,
+        считает количество получателей рассылки
+        """
+        recipients = self.get_recipients()
+        MAX = getattr(settings, 'EMAIL_BULK_SIZE', 100)
+        cnt, bulk = 0, []
+        for email in recipients:
+            bulk.append(SupportEmailStatus(email=email, support_email=self))
+            cnt += 1
+            if cnt == MAX:
+                SupportEmailStatus.objects.bulk_create(bulk)
+                cnt, bulk = 0, []
+        if bulk:
+            SupportEmailStatus.objects.bulk_create(bulk)
+        self.recipients_number = len(recipients)
+        self.save()
+
 
 class BulkEmailOptout(models.Model):
     user = models.ForeignKey(User, verbose_name=_('Пользователь'), related_name='bulk_email_optout',
@@ -64,6 +84,23 @@ class SupportEmailTemplate(models.Model):
     class Meta:
         verbose_name = _('Шаблон рассылки')
         verbose_name_plural = _('Шаблоны рассылок')
+
+
+class SupportEmailStatus(models.Model):
+    STATUS_SENT = 0
+    STATUS_FAILED = 1
+    STATUS_QUEUED = 2
+    STATUSES = (
+        (STATUS_SENT, 'sent'),
+        (STATUS_FAILED, 'failed'),
+        (STATUS_QUEUED, 'queued'),
+    )
+
+    email = models.EmailField(db_index=True)
+    support_email = models.ForeignKey('extension_email.SupportEmail', on_delete=models.CASCADE)
+    status = models.SmallIntegerField(choices=STATUSES, default=STATUS_QUEUED)
+    created = models.DateTimeField(auto_now_add=True)
+    updated = models.DateTimeField(auto_now=True)
 
 
 class EmailRelated(Email):
