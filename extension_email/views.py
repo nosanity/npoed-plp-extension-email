@@ -185,7 +185,7 @@ def unsubscribe_v2(request, hash_str):
         BulkEmailOptout.objects.get_or_create(user=user)
     NewsSubscription.objects.filter(email=s).update(unsubscribed=True)
     context = {
-        'profile_url': '{}/profile/'.format(settings.SSO_NPOED_URL),
+        'profile_url': '{}/profile/'.format(settings.SSO_TP_URL),
         'user': user,
     }
     return render(request, 'extension_email/unsubscribed.html', context)
@@ -212,7 +212,7 @@ def unsubscribe(request, hash_str):
             logging.error('User %s unsubscribe from mass emails error %s' % (request.user.email, e))
     BulkEmailOptout.objects.get_or_create(user=user)
     context = {
-        'profile_url': '{}/profile/'.format(settings.SSO_NPOED_URL),
+        'profile_url': '{}/profile/'.format(settings.SSO_TP_URL),
     }
     return render(request, 'extension_email/unsubscribed.html', context)
 
