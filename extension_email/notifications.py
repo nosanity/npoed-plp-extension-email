@@ -17,7 +17,7 @@ from .models import EmailRelated, SupportEmail, SupportEmailStatus
 
 
 def send_queued():
-    BATCH_SIZE = getattr(settings, 'EMAIL_BATCH_SIZE', 5000)
+    BATCH_SIZE = getattr(settings, 'EMAIL_BATCH_SIZE', 500)
     objects = SupportEmailStatus.objects.filter(status=SupportEmailStatus.STATUS_QUEUED)[:BATCH_SIZE]
     connection = get_connection()
     connection.open()
