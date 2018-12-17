@@ -7,7 +7,7 @@
 <script type="text/javascript" src="{% static 'admin/js/admin/DateTimeShortcuts.js' %}"></script>
 <script type="text/javascript" src="{% static "tiny_mce/tiny_mce.js" %}"></script>
 <script type="text/javascript">
-    $ = django.jQuery;
+    $ = django.jQuery || jQuery;
     var current_emails_file, email_item_id;
     var tinymce_is_hidden = false;
     var required_msg = "{% blocktrans %}Это поле обязательно.{% endblocktrans %}";
