@@ -67,7 +67,9 @@ class SupportEmailSender(object):
         return ctx
 
     def get_extra_headers(self):
-        return {'List-Unsubscribe': self.get_unsubscribe_url(self.obj.email)}
+        if getattr(settings, 'EXTENSION_EMAIL_ADD_UNSUBSCRIBE_HEADER', True):
+            return {'List-Unsubscribe': self.get_unsubscribe_url(self.obj.email)}
+        return {}
 
     def send(self):
         msg = EmailMultiAlternatives(
