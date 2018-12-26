@@ -2,6 +2,8 @@
 
 import base64
 import logging
+from email.header import Header
+from email.utils import formataddr
 from django.conf import settings
 from django.core.mail import get_connection, EmailMultiAlternatives
 from django.utils.functional import cached_property
@@ -75,7 +77,7 @@ class SupportEmailSender(object):
         msg = EmailMultiAlternatives(
             self.get_subject() or '',
             self.get_text() or '',
-            settings.EMAIL_NOTIFICATIONS_FROM,
+            self.get_from_header(),
             [self.obj.email],
             connection=self.connection,
             headers=self.get_extra_headers(),
@@ -89,6 +91,12 @@ class SupportEmailSender(object):
         except Exception as e:
             logging.exception(e)
             return False
+
+    def get_from_header(self):
+        email = settings.EMAIL_NOTIFICATIONS_FROM
+        if isinstance(email, (tuple, list)) and len(email) == 2:
+            return formataddr((str(Header(email[0], 'utf-8')), email[1]))
+        return email
 
     def get_unsubscribe_url(self, email):
         url = '{}?id={}'.format(
