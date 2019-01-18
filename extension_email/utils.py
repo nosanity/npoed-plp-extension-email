@@ -1,8 +1,10 @@
 # coding: utf-8
 
+from django.conf import settings
 from django.db.models import Q
 from django.utils import timezone
-from plp.models import User, EnrollmentReason, Participant, Subscription, Course, CourseSession, NewsSubscription
+from plp.models import User, EnrollmentReason, Participant, Subscription, Course, CourseSession, NewsSubscription, \
+    LMSBackend
 from plp.utils.edx_enrollment import EDXEnrollment, EDXEnrollmentError
 from .forms import BulkEmailForm, CustomUnicodeCourseSession
 from .models import BulkEmailOptout
@@ -51,16 +53,7 @@ def filter_users(support_email):
     dic_exclude = {}
     session_ids = []
     to_all = True
-    if data.get('instructors_filter', '') != '':
-        try:
-            edx_resp = EdxEnrollmentWithPerms().get_permissions().json()
-            session_id_to_code = {
-                i.id: i.get_absolute_slug_v1()
-                for i in CourseSession.objects.select_related('course__slug', 'course__university__slug')
-            }
-            to_all = False
-        except (EDXEnrollmentError, ValueError):
-            return User.objects.none(), 'error'
+
     # если фильтр по сессиям будет нужен, но пользователь не выбрал ни одной сессии
     if not data['session_filter'] and not data['course_filter'] and not data['university_filter'] \
             and (_check_enrollment_type_chosen() or _check_get_certificate_chosen()):
@@ -85,10 +78,25 @@ def filter_users(support_email):
 
     instructor_usernames = []
     if data.get('instructors_filter', '') != '':
-        iterator = session_ids if session_ids else list(session_id_to_code.keys())
-        for i in iterator:
-            instructor_usernames.extend(edx_resp.get(session_id_to_code[i], []))
-        instructor_usernames = list(set(instructor_usernames))
+        to_all = False
+        if getattr(settings, 'ENABLE_ARM', False):
+            from arm.models import UserRoleInstance
+            from arm.utils.role_templates import COURSE_AUTHOR_SLUG
+            instructor_usernames = list(UserRoleInstance.objects.filter(role__slug=COURSE_AUTHOR_SLUG).
+                                        values_list('user__username', flat=True).distinct())
+        else:
+            backend_ids = list(set(CourseSession.values_list('lms_id', flat=True).distinct()))
+            backends = list(LMSBackend.objects.get(
+                id__in=filter(None, backend_ids), core=LMSBackend.CORE_EDX, sso_push=True)
+            )
+            all_session_ids = [i.get_absolute_slug_v1() for i in CourseSession.objects.all()]
+            for lms in backends:
+                try:
+                    for k, v in EdxEnrollmentWithPerms(lms).get_permissions().json().items():
+                        instructor_usernames.extend(v if k in all_session_ids else [])
+                except (EDXEnrollmentError, ValueError):
+                    return User.objects.none(), 'error'
+            instructor_usernames = list(set(instructor_usernames))
 
     last_login_from = data.get('last_login_from') or BulkEmailForm.MIN_DATE
     last_login_to = data.get('last_login_to') or BulkEmailForm.MAX_DATE
